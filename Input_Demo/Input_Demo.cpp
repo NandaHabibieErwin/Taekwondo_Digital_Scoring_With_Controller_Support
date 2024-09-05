@@ -1,38 +1,79 @@
 // Input_Demo.cpp : Defines the entry point for the application.
 //
 
+#include <unordered_map>
+#include <windows.h>
+#include <hidsdi.h>
 #include "framework.h"
 #include "Input_Demo.h"
-
+#define INI_FILE_PATH L".\\config.ini"
 #define MAX_LOADSTRING 100
+#define SECTION_NAME L"Settings"
+#define KEY_JURY_COUNT L"JuryCount"
 
 // Global Variables:
 HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
+
+// Score Variable
 int scoreA = 0;
 int scoreB = 0;
-bool aPress = false;
-bool bPress = false;
-bool cPress = false;
-bool dPress = false;
+
+wchar_t playerAName[50] = L"Player A";
+wchar_t playerBName[50] = L"Player B";
+
+std::unordered_map<HANDLE, bool> numpad0;
+std::unordered_map<HANDLE, bool> numpad1;
+std::unordered_map<HANDLE, bool> numpad2;
+std::unordered_map<HANDLE, bool> numpad3;
+std::unordered_map<HANDLE, bool> numpad4;
+std::unordered_map<HANDLE, bool> numpad5;
+std::unordered_map<HANDLE, bool> numpad6;
+std::unordered_map<HANDLE, bool> numpad7;
+std::unordered_map<HANDLE, bool> numpad8;
+std::unordered_map<HANDLE, bool> numpad9;
+std::unordered_map<HANDLE, bool> numpadDec;
+std::unordered_map<HANDLE, bool> numpadDiv;
+std::unordered_map<HANDLE, bool> numpadMulti;
+std::unordered_map<HANDLE, bool> numpadSub;
+std::unordered_map<HANDLE, bool> numpadAdd;
+
+std::unordered_map<HANDLE, bool> numpad;
+std::unordered_map<HANDLE, bool> addedScoreA;
+std::unordered_map<HANDLE, bool> addedScoreB;
+
+bool scoreOneAdded = false;
+bool scoreTwoAdded = false;
+bool scoreThreeAdded = false;
+bool scoreFourAdded = false;
+bool scoreFiveAdded = false;
+
+int currentJury;
 static bool timerRunning = false;
 
 
 
 
-int countdown = 0; // Countdown starting value in seconds
+int countdown = 0;
 
 HWND hTimerInput;
 HWND hStartTimer;
 HWND hResetScore;
 
-
-// Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    SetupMatch(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    JuryConfig(HWND, UINT, WPARAM, LPARAM);
+void PaintRedAndBlueBackground(HDC hdc, RECT redSide, RECT blueSide);
+void DisplayPlayerInfo(HDC hdc, int scoreA, int scoreB, LPCWSTR playerAName, LPCWSTR playerBName);
+void DisplayTimer(HDC hdc, int countdown);
+void UpdateDisplay(HWND hWnd);
+void StartTimer(HWND hWnd);
+void ResetScore(HWND hWnd);
+void HandleScoreInput(HWND hWnd, RAWKEYBOARD rawKB, HANDLE hDevice);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     _In_opt_ HINSTANCE hPrevInstance,
@@ -89,6 +130,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 }
 
 
+void RegisterMultipleKeyboards(HWND hwnd) {
+    RAWINPUTDEVICE rid[1];
+
+    rid[0].usUsagePage = 0x01; // Generic desktop controls
+    rid[0].usUsage = 0x06;     // Keyboard
+    rid[0].dwFlags = RIDEV_INPUTSINK; // Capture input even when not in focus
+    rid[0].hwndTarget = hwnd; // Target the main window
+
+    if (!RegisterRawInputDevices(rid, 1, sizeof(rid[0]))) {
+        MessageBox(NULL, L"Failed to register raw input devices.", L"Error", MB_OK);
+    }
+}
+
+
 
 //
 //  FUNCTION: MyRegisterClass()
@@ -114,7 +169,10 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
     return RegisterClassExW(&wcex);
+
 }
+
+
 
 //
 //   FUNCTION: InitInstance(HINSTANCE, int)
@@ -130,6 +188,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
     hInst = hInstance; // Store instance handle in our global variable
 
+    
+    int juryCount = GetPrivateProfileInt(SECTION_NAME, KEY_JURY_COUNT, 1, INI_FILE_PATH);
+
     HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
@@ -137,10 +198,14 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     {
         return FALSE;
     }
+    RegisterMultipleKeyboards(hWnd);
 
-    hTimerInput = CreateWindowEx(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER, 120, 70, 100, 25, hWnd, (HMENU)TIMER_INPUT, hInstance, NULL);
-    hStartTimer = CreateWindowEx(0, L"BUTTON", L"Start Timer", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 10, 70, 100, 25, hWnd, (HMENU)START_TIMER, hInstance, NULL);
-    hResetScore = CreateWindowEx(0, L"BUTTON", L"Reset Score", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 10, 100, 100, 25, hWnd, (HMENU)RESET_SCORE, hInstance, NULL);
+    hStartTimer = CreateWindowEx(0, L"BUTTON", L"Start Timer", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        10, 600, 100, 50, hWnd, (HMENU)START_TIMER, hInstance, NULL);
+
+    hResetScore = CreateWindowEx(0, L"BUTTON", L"Reset Score", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        120, 600, 100, 50, hWnd, (HMENU)RESET_SCORE, hInstance, NULL);
+
 
 
     ShowWindow(hWnd, nCmdShow);
@@ -173,6 +238,83 @@ void showScore(HDC hdc) {
 
     TextOut(hdc, 10, 10, scoreTextA, lstrlen(scoreTextA));
     TextOut(hdc, 10, 30, scoreTextB, lstrlen(scoreTextB));
+}
+
+void PaintRedAndBlueBackground(HDC hdc, RECT redSide, RECT blueSide) {
+    // Red background for player A
+    HBRUSH redBrush = CreateSolidBrush(RGB(255, 0, 0));
+    FillRect(hdc, &redSide, redBrush);
+    DeleteObject(redBrush);
+
+    // Blue background for player B
+    HBRUSH blueBrush = CreateSolidBrush(RGB(0, 0, 255));
+    FillRect(hdc, &blueSide, blueBrush);
+    DeleteObject(blueBrush);
+}
+
+void DisplayPlayerInfo(HDC hdc, int scoreA, int scoreB, LPCWSTR playerAName, LPCWSTR playerBName, int halfWidth, int windowHeight, int fontSize, int scoreYOffset) {
+    // Create the font
+    HFONT hFont = CreateFont(fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+        DEFAULT_PITCH | FF_SWISS, L"Arial");
+
+    // Check if font creation was successful
+    if (hFont == NULL) {
+        MessageBox(NULL, L"Font creation failed!", L"Error", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    // Select the font into the HDC
+    HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
+
+    // Set text background to transparent
+    SetBkMode(hdc, TRANSPARENT);
+
+    // Red player info (Player A)
+    SetTextColor(hdc, RGB(255, 255, 255));  // White text
+    TextOut(hdc, halfWidth / 4, scoreYOffset, playerAName, lstrlen(playerAName));  // Player A name
+    wchar_t scoreTextA[10];
+    wsprintf(scoreTextA, L"%d", scoreA);
+    TextOut(hdc, halfWidth / 4, scoreYOffset + fontSize, scoreTextA, lstrlen(scoreTextA));  // Player A score
+
+    // Blue player info (Player B)
+    SetTextColor(hdc, RGB(255, 255, 255));  // White text
+    TextOut(hdc, halfWidth + halfWidth / 4, scoreYOffset, playerBName, lstrlen(playerBName));  // Player B name
+    wchar_t scoreTextB[10];
+    wsprintf(scoreTextB, L"%d", scoreB);
+    TextOut(hdc, halfWidth + halfWidth / 4, scoreYOffset + fontSize, scoreTextB, lstrlen(scoreTextB));  // Player B score
+
+    // Restore the original font and delete the new font
+    SelectObject(hdc, oldFont);
+    DeleteObject(hFont);
+}
+
+void DisplayTimer(HDC hdc, int countdown, int windowWidth, int timerYOffset, int fontSize) {
+    HFONT hFont = CreateFont(fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+        DEFAULT_PITCH | FF_SWISS, L"Arial");
+
+    // Check if font creation was successful
+    if (hFont == NULL) {
+        MessageBox(NULL, L"Font creation failed!", L"Error", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
+
+    SetBkMode(hdc, TRANSPARENT);  // Ensure no background fill
+    SetTextColor(hdc, RGB(255, 255, 255));  // White text for timer
+
+    // Convert countdown seconds into MM:SS format
+    int minutes = countdown / 60;
+    int seconds = countdown % 60;
+
+    wchar_t timerText[10];
+    wsprintf(timerText, L"%02d:%02d", minutes, seconds);  // MM:SS format
+    TextOut(hdc, windowWidth / 2 - fontSize, timerYOffset, timerText, lstrlen(timerText));  // Center the timer
+
+    SelectObject(hdc, oldFont);  // Restore original font
+    DeleteObject(hFont);  // Clean up the font
 }
 
 void showTimer(HDC hdc, int countdown) {
@@ -221,6 +363,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case IDM_EXIT:
             DestroyWindow(hWnd);
             break;
+        case ID_MATCH_SETUP:
+        {
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_SETUPMATCH), hWnd, SetupMatch);
+
+            // After the dialog, set up the timer if a valid countdown value was entered
+            if (countdown > 0 && !timerRunning) {
+                timerRunning = true;
+                SetTimer(hWnd, TIMER_ID, 1000, NULL);  // Start the timer with 1 second interval
+            }
+        }
+        break;
+        case ID_CONFIG_JURY:
+            DialogBox(hInst, MAKEINTRESOURCE(IDD_JURYCONFIG), hWnd, JuryConfig);
+        break;
         case START_TIMER:
         {
             wchar_t timerValue[10];
@@ -230,7 +386,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 timerRunning = true;
                 SetTimer(hWnd, TIMER_ID, TIMER_INTERVAL, NULL);
             }
-            MessageBox(hWnd, L"Timer have been set.", L"Run", MB_OK | MB_ICONINFORMATION);
+           // MessageBox(hWnd, L"Timer have been set.", L"Run", MB_OK | MB_ICONINFORMATION);
             UpdateDisplay(hWnd); // Force immediate repaint after starting the timer
         }
         break;
@@ -239,7 +395,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             scoreA = 0;
             scoreB = 0;
             UpdateDisplay(hWnd); // Force immediate repaint after starting the timer
-            MessageBox(hWnd, L"Score have been reset.", L"Success", MB_OK | MB_ICONINFORMATION);
+          //  MessageBox(hWnd, L"Score have been reset.", L"Success", MB_OK | MB_ICONINFORMATION);
         }
         break;
         default:
@@ -247,65 +403,355 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
     }
     break;
+    case WM_SIZE:
+    {
+        // Get the new window dimensions
+        int width = LOWORD(lParam);
+        int height = HIWORD(lParam);
 
-    case WM_KEYDOWN:
-        if (wParam == VK_NUMPAD4) {
-            aPress = true;           
-        }
-        else if (wParam == VK_NUMPAD7) {
-            bPress = true;            
-        }
-        else if (wParam == VK_NUMPAD9) {
-            cPress = true;            
-        }
-        else if (wParam == VK_NUMPAD6) {
-            dPress = true;            
-        }
-        if (aPress && bPress) {
-            scoreA++;
-            aPress = false;
-                bPress = false;
-            UpdateDisplay(hWnd); // Force immediate repaint
+        // Reposition the Start Timer button at the bottom-left
+        SetWindowPos(hStartTimer, NULL, 10, height - 100, 100, 50, SWP_NOZORDER);
+
+        // Reposition the Reset Score button next to the Start Timer button
+        SetWindowPos(hResetScore, NULL, 120, height - 100, 100, 50, SWP_NOZORDER);
+
+        // Ensure the window is repainted correctly
+        InvalidateRect(hWnd, NULL, TRUE);
+        UpdateWindow(hWnd);
+    }
+    break;
+    case WM_INPUT:
+    {
+        UINT dwSize = 0;
+        GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
+
+        LPBYTE lpb = new BYTE[dwSize];
+        if (lpb == NULL) {
+            return 0;
         }
 
-        if (cPress && dPress) {
-            scoreB++;
-            cPress = false;
-                dPress = false;
-            UpdateDisplay(hWnd); // Force immediate repaint
+        if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER)) != dwSize) {
+            delete[] lpb;
+            return 0;
         }
-        break;
 
-    case WM_KEYUP:
-        if (wParam == VK_NUMPAD4) {
-            aPress = false;
+        RAWINPUT* raw = (RAWINPUT*)lpb;
+        if (raw->header.dwType == RIM_TYPEKEYBOARD) {
+            RAWKEYBOARD rawKB = raw->data.keyboard;
+            HANDLE hDevice = raw->header.hDevice;
+
+
+            if (rawKB.VKey == VK_NUMPAD1) {
+                if (rawKB.Message == WM_KEYDOWN) {
+                    numpad1[hDevice] = true;
+                }
+                else if (rawKB.Message == WM_KEYUP) {
+                    numpad1[hDevice] = false;
+                }
+
+    
+                int numpad1PressedCount = 0;
+                for (const auto& state : numpad1) {
+                    if (state.second) {
+                        numpad1PressedCount++;
+                    }
+                }
+
+                
+                if (numpad1PressedCount >= 2 && !scoreOneAdded) {
+                    scoreA++;  
+                    scoreOneAdded = true;  
+                    UpdateDisplay(hWnd); 
+                }
+
+                if (numpad1PressedCount == 0) {
+                    scoreOneAdded = false;
+                }
+            }
+
+
+            if (rawKB.VKey == VK_NUMPAD2) {
+                if (rawKB.Message == WM_KEYDOWN) {
+                    numpad2[hDevice] = true;
+                }
+                else if (rawKB.Message == WM_KEYUP) {
+                    numpad2[hDevice] = false;
+                }
+
+
+                int numpad2PressedCount = 0;
+                for (const auto& state : numpad2) {
+                    if (state.second) {
+                        numpad2PressedCount++;
+                    }
+                }
+
+                
+                if (numpad2PressedCount >= 2 && !scoreTwoAdded) {
+                    scoreA += 2;
+                    scoreTwoAdded = true;
+                    UpdateDisplay(hWnd);
+                }
+
+
+                if (numpad2PressedCount == 0) {
+                    scoreTwoAdded = false;
+                }
+            }
+
+            if (rawKB.VKey == VK_NUMPAD3) {
+                if (rawKB.Message == WM_KEYDOWN) {
+                    numpad3[hDevice] = true;
+                }
+                else if (rawKB.Message == WM_KEYUP) {
+                    numpad3[hDevice] = false;
+                }
+
+
+                int numpad3PressedCount = 0;
+                for (const auto& state : numpad3) {
+                    if (state.second) {
+                        numpad3PressedCount++;
+                    }
+                }
+
+
+                if (numpad3PressedCount >= 2 && !scoreThreeAdded) {
+                    scoreA += 3;
+                    scoreThreeAdded = true;
+                    UpdateDisplay(hWnd);
+                }
+
+
+                if (numpad3PressedCount == 0) {
+                    scoreThreeAdded = false;
+                }
+            }
+
+            if (rawKB.VKey == VK_NUMPAD4) {
+                if (rawKB.Message == WM_KEYDOWN) {
+                    numpad4[hDevice] = true;
+                }
+                else if (rawKB.Message == WM_KEYUP) {
+                    numpad4[hDevice] = false;
+                }
+
+
+                int numpad4PressedCount = 0;
+                for (const auto& state : numpad4) {
+                    if (state.second) {
+                        numpad4PressedCount++;
+                    }
+                }
+
+
+                if (numpad4PressedCount >= 2 && !scoreFourAdded) {
+                    scoreA += 4;
+                    scoreFourAdded = true;
+                    UpdateDisplay(hWnd);
+                }
+
+
+                if (numpad4PressedCount == 0) {
+                    scoreFourAdded = false;
+                }
+            }
+
+            if (rawKB.VKey == VK_NUMPAD5) {
+                if (rawKB.Message == WM_KEYDOWN) {
+                    numpad5[hDevice] = true;
+                }
+                else if (rawKB.Message == WM_KEYUP) {
+                    numpad5[hDevice] = false;
+                }
+
+
+                int numpad5PressedCount = 0;
+                for (const auto& state : numpad5) {
+                    if (state.second) {
+                        numpad5PressedCount++;
+                    }
+                }
+
+
+                if (numpad5PressedCount >= 2 && !scoreFiveAdded) {
+                    scoreA += 5;
+                    scoreFiveAdded = true;
+                    UpdateDisplay(hWnd);
+                }
+
+
+                if (numpad5PressedCount == 0) {
+                    scoreFiveAdded = false;
+                }
+            }
+
+            if (rawKB.VKey == VK_NUMPAD6) {
+                if (rawKB.Message == WM_KEYDOWN) {
+                    numpad6[hDevice] = true;
+                }
+                else if (rawKB.Message == WM_KEYUP) {
+                    numpad6[hDevice] = false;
+                }
+
+
+                int numpad6PressedCount = 0;
+                for (const auto& state : numpad6) {
+                    if (state.second) {
+                        numpad6PressedCount++;
+                    }
+                }
+
+
+                if (numpad6PressedCount >= 2 && !scoreOneAdded) {
+                    scoreB++;
+                    scoreOneAdded = true;
+                    UpdateDisplay(hWnd);
+                }
+
+
+                if (numpad6PressedCount == 0) {
+                    scoreOneAdded = false;
+                }
+            }
+
+            if (rawKB.VKey == VK_NUMPAD7) {
+                if (rawKB.Message == WM_KEYDOWN) {
+                    numpad7[hDevice] = true;
+                }
+                else if (rawKB.Message == WM_KEYUP) {
+                    numpad7[hDevice] = false;
+                }
+
+
+                int numpad7PressedCount = 0;
+                for (const auto& state : numpad7) {
+                    if (state.second) {
+                        numpad7PressedCount++;
+                    }
+                }
+
+
+                if (numpad7PressedCount >= 2 && !scoreOneAdded) {
+                    scoreB += 2;
+                    scoreOneAdded = true;
+                    UpdateDisplay(hWnd);
+                }
+
+
+                if (numpad7PressedCount == 0) {
+                    scoreOneAdded = false;
+                }
+            }
+
+            if (rawKB.VKey == VK_NUMPAD8) {
+                if (rawKB.Message == WM_KEYDOWN) {
+                    numpad8[hDevice] = true;
+                }
+                else if (rawKB.Message == WM_KEYUP) {
+                    numpad8[hDevice] = false;
+                }
+
+
+                int numpad8PressedCount = 0;
+                for (const auto& state : numpad8) {
+                    if (state.second) {
+                        numpad8PressedCount++;
+                    }
+                }
+
+
+                if (numpad8PressedCount >= 2 && !scoreThreeAdded) {
+                    scoreB += 3;
+                    scoreThreeAdded = true;
+                    UpdateDisplay(hWnd);
+                }
+
+
+                if (numpad8PressedCount == 0) {
+                    scoreThreeAdded = false;
+                }
+            }
+
+            if (rawKB.VKey == VK_NUMPAD9) {
+                if (rawKB.Message == WM_KEYDOWN) {
+                    numpad9[hDevice] = true;
+                }
+                else if (rawKB.Message == WM_KEYUP) {
+                    numpad9[hDevice] = false;
+                }
+
+
+                int numpad9PressedCount = 0;
+                for (const auto& state : numpad9) {
+                    if (state.second) {
+                        numpad9PressedCount++;
+                    }
+                }
+
+
+                if (numpad9PressedCount >= 2 && !scoreFourAdded) {
+                    scoreB += 4;
+                    scoreFourAdded = true;
+                    UpdateDisplay(hWnd);
+                }
+
+
+                if (numpad9PressedCount == 0) {
+                    scoreFourAdded = false;
+                }
+            }
+
+            if (rawKB.VKey == VK_NUMPAD0) {
+                if (rawKB.Message == WM_KEYDOWN) {
+                    numpad0[hDevice] = true;
+                }
+                else if (rawKB.Message == WM_KEYUP) {
+                    numpad0[hDevice] = false;
+                }
+
+
+                int numpad0PressedCount = 0;
+                for (const auto& state : numpad0) {
+                    if (state.second) {
+                        numpad0PressedCount++;
+                    }
+                }
+
+
+                if (numpad0PressedCount >= 2 && !scoreFiveAdded) {
+                    scoreB += 5;
+                    scoreFiveAdded = true;
+                    UpdateDisplay(hWnd);
+                }
+
+
+                if (numpad0PressedCount == 0) {
+                    scoreFiveAdded = false;
+                }
+            }
+
         }
-        else if (wParam == VK_NUMPAD7) {
-            bPress = false;
-        }
-        else if (wParam == VK_NUMPAD6) {
-            cPress = false;
-        }
-        else if (wParam == VK_NUMPAD9) {
-            dPress = false;
-        }
-        break;
+
+        delete[] lpb;
+        return 0;
+    }
 
     case WM_TIMER:
     {
         if (wParam == TIMER_ID) {
             if (countdown > 0) {
                 countdown--;
-                // Force the window to repaint
-                UpdateDisplay(hWnd);
+                UpdateDisplay(hWnd);  // Repaint to show updated timer
             }
             else {
-                KillTimer(hWnd, TIMER_ID); // Stop the timer
+                KillTimer(hWnd, TIMER_ID); // Stop the timer when it reaches 0
                 timerRunning = false;
             }
         }
     }
     break;
+
 
     case IDM_SETTIMER:
         DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTIMER), hWnd, SetTimerProc);
@@ -314,14 +760,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
-        hdc = BeginPaint(hWnd, &ps);
+        HDC hdc = BeginPaint(hWnd, &ps);
 
-        showScore(hdc);       // Draw the scores
-        showTimer(hdc, countdown); // Draw the timer
+        // Get the current window size
+        RECT clientRect;
+        GetClientRect(hWnd, &clientRect);
+        int windowWidth = clientRect.right;
+        int windowHeight = clientRect.bottom;
+
+        // Calculate half-width for the red and blue sections
+        int halfWidth = windowWidth / 2;
+
+        // Define red and blue sections
+        RECT redSide = { 0, 0, halfWidth, windowHeight };
+        RECT blueSide = { halfWidth, 0, windowWidth, windowHeight };
+
+        // Paint red and blue backgrounds
+        PaintRedAndBlueBackground(hdc, redSide, blueSide);
+
+        // Calculate and display player information and score based on window size
+        int fontSize = windowHeight / 10;  // Font size scales with window height
+        int scoreYOffset = windowHeight / 4;  // Y offset for score display
+
+        // Use the global variables playerAName and playerBName here
+        DisplayPlayerInfo(hdc, scoreA, scoreB, playerAName, playerBName, halfWidth, windowHeight, fontSize, scoreYOffset);
+
+        // Display Countdown Timer at the center of the window
+        int timerYOffset = windowHeight / 2;
+        DisplayTimer(hdc, countdown, windowWidth, timerYOffset, fontSize);
 
         EndPaint(hWnd, &ps);
     }
     break;
+
+
 
     case WM_DESTROY:
         PostQuitMessage(0);
@@ -332,18 +804,102 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
+INT_PTR CALLBACK SetupMatch(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    static HWND hMainWnd;  // Store the main window handle
 
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        // Retrieve the main window handle passed through lParam
+        hMainWnd = (HWND)lParam;
+        return (INT_PTR)TRUE;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK)
+        {
+            // Get player names
+            GetDlgItemText(hDlg, IDC_EDIT_PLAYER_A, playerAName, 50);
+            GetDlgItemText(hDlg, IDC_EDIT_PLAYER_B, playerBName, 50);
+
+            // Get minutes and seconds from the dialog's edit controls
+            wchar_t minutesValue[10], secondsValue[10];
+            GetDlgItemText(hDlg, IDC_EDIT_MINUTES, minutesValue, 10);
+            GetDlgItemText(hDlg, IDC_EDIT_SECONDS, secondsValue, 10);
+
+            int minutes = _wtoi(minutesValue);
+            int seconds = _wtoi(secondsValue);
+
+            if (minutes < 0 || seconds < 0 || seconds >= 60) {
+                MessageBox(hDlg, L"Please enter valid minutes and seconds (seconds should be 0-59).", L"Error", MB_OK | MB_ICONERROR);
+                return (INT_PTR)TRUE;
+            }
+
+            countdown = (minutes * 60) + seconds;
+            EndDialog(hDlg, IDOK); // Close dialog
+
+            // Now call UpdateDisplay using the main window handle
+            InvalidateRect(hMainWnd, NULL, TRUE);  // Forces a repaint
+            return (INT_PTR)TRUE;
+        }
+        else if (LOWORD(wParam) == IDCANCEL)
+        {
+            EndDialog(hDlg, IDCANCEL);
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
+
+INT_PTR CALLBACK JuryConfig(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    UNREFERENCED_PARAMETER(lParam);
+    switch (message)
+    {
+    case WM_INITDIALOG:
+    {
+        HWND hComboBox = GetDlgItem(hDlg, IDC_JURY_NUMBER);
+        SendMessage(hComboBox, CB_ADDSTRING, 0, (LPARAM)L"1 Jury");
+        SendMessage(hComboBox, CB_ADDSTRING, 0, (LPARAM)L"2 Jurors");
+        SendMessage(hComboBox, CB_ADDSTRING, 0, (LPARAM)L"3 Jurors");
+        SendMessage(hComboBox, CB_SETCURSEL, 0, 0); // Default selection
+        return (INT_PTR)TRUE;
+    }
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDOK)
+        {
+            HWND hComboBox = GetDlgItem(hDlg, IDC_JURY_NUMBER);
+            int selIndex = SendMessage(hComboBox, CB_GETCURSEL, 0, 0);
+
+            // Convert the selected index to a string
+            wchar_t juryCountStr[2];
+            _itow_s(selIndex + 1, juryCountStr, 10);
+
+            // Save to the INI file
+            WritePrivateProfileString(L"Settings", L"JuryCount", juryCountStr, INI_FILE_PATH);
+
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        else if (LOWORD(wParam) == IDCANCEL)
+        {
+            EndDialog(hDlg, LOWORD(wParam));
+            return (INT_PTR)TRUE;
+        }
+        break;
+    }
+    return (INT_PTR)FALSE;
+}
 
 
 // Message handler for about box.
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);
-    switch (message)
+    switch (message) 
     {
-    case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
-
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
         {
