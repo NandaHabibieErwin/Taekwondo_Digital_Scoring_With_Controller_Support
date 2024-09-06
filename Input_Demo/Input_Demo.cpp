@@ -5,6 +5,13 @@
 #include <unordered_map>
 #include <windows.h>
 #include <hidsdi.h>
+#include <mmsystem.h>
+#include <iostream>
+#include <tchar.h>
+#include <shlwapi.h>
+#pragma comment(lib, "winmm.lib")
+#pragma comment(lib, "Shlwapi.lib")
+
 #include "framework.h"
 #include "Input_Demo.h"
 #define INI_FILE_PATH L".\\config.ini"
@@ -24,12 +31,12 @@ int scoreB = 0;
 wchar_t playerAName[50] = L"Player A";
 wchar_t playerBName[50] = L"Player B";
 
-// Global variables to track which jury devices are registered
+
 HANDLE jury1Device = NULL;
 HANDLE jury2Device = NULL;
 HANDLE jury3Device = NULL;
 
-// Variables to track if any key is pressed on each jury's keyboard
+
 bool jury1KeyPressed = false;
 bool jury2KeyPressed = false;
 bool jury3KeyPressed = false;
@@ -132,10 +139,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         }
         else
         {
-            // Handle timer processing directly
             if (timerRunning)
             {
-                // This block will be called when the window is idle
                 // No need for additional timer handling if WM_TIMER is handled correctly in WndProc
             }
         }
@@ -146,14 +151,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 }
 
 void SaveSettings() {
-    // Save jury count
+
     wchar_t juryCountStr[10];
     _itow_s(currentJury, juryCountStr, 10);
     if (!WritePrivateProfileString(L"Settings", L"JuryCount", juryCountStr, INI_FILE_PATH)) {
         MessageBox(NULL, L"Failed to save jury count.", L"Error", MB_OK | MB_ICONERROR);
     }
 
-    // Save player names
+
     if (!WritePrivateProfileString(L"Settings", L"PlayerA", playerAName, INI_FILE_PATH)) {
         MessageBox(NULL, L"Failed to save Player A's name.", L"Error", MB_OK | MB_ICONERROR);
     }
@@ -162,7 +167,7 @@ void SaveSettings() {
         MessageBox(NULL, L"Failed to save Player B's name.", L"Error", MB_OK | MB_ICONERROR);
     }
 
-    // Save timer (convert to string)
+
     wchar_t timerValue[10];
     _itow_s(countdown, timerValue, 10);
     if (!WritePrivateProfileString(L"Settings", L"Timer[Second]", timerValue, INI_FILE_PATH)) {
@@ -172,14 +177,14 @@ void SaveSettings() {
 
 
 void LoadSettings() {
-    // Load jury count with error handling for invalid values
+
     currentJury = GetPrivateProfileInt(L"Settings", L"JuryCount", 1, INI_FILE_PATH);
-    if (currentJury < 1 || currentJury > 10) {  // Assume 1-10 is a valid range for jury count
-        currentJury = 1;  // Default value
+    if (currentJury < 1 || currentJury > 4) {
+        currentJury = 1;
         MessageBox(NULL, L"Invalid jury count found, defaulting to 1.", L"Warning", MB_OK | MB_ICONWARNING);
     }
 
-    // Load player names (default to "Player A" and "Player B" if not found)
+
     if (GetPrivateProfileString(L"Settings", L"PlayerA", L"Player A", playerAName, 50, INI_FILE_PATH) == 0) {
         MessageBox(NULL, L"Failed to load Player A's name. Using default value.", L"Warning", MB_OK | MB_ICONWARNING);
         wcscpy_s(playerAName, L"Player A");
@@ -190,12 +195,12 @@ void LoadSettings() {
         wcscpy_s(playerBName, L"Player B");
     }
 
-    // Load timer (default to 0 if not found or invalid)
+
     wchar_t timerValue[10];
     GetPrivateProfileString(L"Settings", L"Timer[Second]", L"0", timerValue, 10, INI_FILE_PATH);
-    countdown = _wtoi(timerValue);  // Convert string to integer
-    if (countdown < 0) {  // Handle invalid or negative values
-        countdown = 0;  // Default to 0 if invalid
+    countdown = _wtoi(timerValue);
+    if (countdown < 0) {
+        countdown = 0;
         MessageBox(NULL, L"Invalid timer value found, defaulting to 0.", L"Warning", MB_OK | MB_ICONWARNING);
     }
 }
@@ -218,14 +223,15 @@ void HandleInput(HWND hWnd, RAWKEYBOARD& rawKB, HANDLE hDevice,
         }
     }
 
-    // Check if the number of pressed keys matches the current jury count
+
     if (pressedCount >= currentJury && !scoreAdded) {
         score += points;
+        PlaySound(TEXT("sound/scorehit.wav"), NULL, SND_FILENAME | SND_ASYNC);
         scoreAdded = true;
         UpdateDisplay(hWnd);
     }
 
-    // Reset the flag when no keys are pressed
+
     if (pressedCount == 0) {
         scoreAdded = false;
     }
@@ -319,7 +325,10 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     hFinish = CreateWindowEx(0, L"BUTTON", L"Finish", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         230, 600, 100, 50, hWnd, (HMENU)FINISH, hInstance, NULL);
 
-
+    TCHAR exePath[MAX_PATH];
+    GetModuleFileName(NULL, exePath, MAX_PATH);
+    PathRemoveFileSpec(exePath);
+    SetCurrentDirectory(exePath);
 
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
@@ -339,8 +348,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 
 void UpdateDisplay(HWND hWnd) {
-    InvalidateRect(hWnd, NULL, TRUE); // Trigger a repaint of the entire window
-    UpdateWindow(hWnd);               // Force immediate repaint
+    InvalidateRect(hWnd, NULL, TRUE);
+    UpdateWindow(hWnd);               
 }
 
 void showScore(HDC hdc) {
@@ -354,50 +363,50 @@ void showScore(HDC hdc) {
 }
 
 void PaintRedAndBlueBackground(HDC hdc, RECT redSide, RECT blueSide) {
-    // Red background for player A
+
     HBRUSH redBrush = CreateSolidBrush(RGB(255, 0, 0));
     FillRect(hdc, &redSide, redBrush);
     DeleteObject(redBrush);
 
-    // Blue background for player B
+
     HBRUSH blueBrush = CreateSolidBrush(RGB(0, 0, 255));
     FillRect(hdc, &blueSide, blueBrush);
     DeleteObject(blueBrush);
 }
 
 void DisplayPlayerInfo(HDC hdc, int scoreA, int scoreB, LPCWSTR playerAName, LPCWSTR playerBName, int halfWidth, int windowHeight, int fontSize, int scoreYOffset) {
-    // Create the font
+
     HFONT hFont = CreateFont(fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
         OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
         DEFAULT_PITCH | FF_SWISS, L"Arial");
 
-    // Check if font creation was successful
+
     if (hFont == NULL) {
         MessageBox(NULL, L"Font creation failed!", L"Error", MB_OK | MB_ICONERROR);
         return;
     }
 
-    // Select the font into the HDC
+
     HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
 
-    // Set text background to transparent
+
     SetBkMode(hdc, TRANSPARENT);
 
-    // Red player info (Player A)
-    SetTextColor(hdc, RGB(255, 255, 255));  // White text
-    TextOut(hdc, halfWidth / 4, scoreYOffset, playerAName, lstrlen(playerAName));  // Player A name
+
+    SetTextColor(hdc, RGB(255, 255, 255));
+    TextOut(hdc, halfWidth / 4, scoreYOffset, playerAName, lstrlen(playerAName));
     wchar_t scoreTextA[10];
     wsprintf(scoreTextA, L"%d", scoreA);
-    TextOut(hdc, halfWidth / 4, scoreYOffset + fontSize, scoreTextA, lstrlen(scoreTextA));  // Player A score
+    TextOut(hdc, halfWidth / 4, scoreYOffset + fontSize, scoreTextA, lstrlen(scoreTextA));
 
-    // Blue player info (Player B)
-    SetTextColor(hdc, RGB(255, 255, 255));  // White text
-    TextOut(hdc, halfWidth + halfWidth / 4, scoreYOffset, playerBName, lstrlen(playerBName));  // Player B name
+
+    SetTextColor(hdc, RGB(255, 255, 255)); 
+    TextOut(hdc, halfWidth + halfWidth / 4, scoreYOffset, playerBName, lstrlen(playerBName));
     wchar_t scoreTextB[10];
     wsprintf(scoreTextB, L"%d", scoreB);
-    TextOut(hdc, halfWidth + halfWidth / 4, scoreYOffset + fontSize, scoreTextB, lstrlen(scoreTextB));  // Player B score
+    TextOut(hdc, halfWidth + halfWidth / 4, scoreYOffset + fontSize, scoreTextB, lstrlen(scoreTextB));  
 
-    // Restore the original font and delete the new font
+
     SelectObject(hdc, oldFont);
     DeleteObject(hFont);
 }
@@ -407,7 +416,7 @@ void DisplayTimer(HDC hdc, int countdown, int windowWidth, int timerYOffset, int
         OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
         DEFAULT_PITCH | FF_SWISS, L"Arial");
 
-    // Check if font creation was successful
+
     if (hFont == NULL) {
         MessageBox(NULL, L"Font creation failed!", L"Error", MB_OK | MB_ICONERROR);
         return;
@@ -415,19 +424,19 @@ void DisplayTimer(HDC hdc, int countdown, int windowWidth, int timerYOffset, int
 
     HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
 
-    SetBkMode(hdc, TRANSPARENT);  // Ensure no background fill
-    SetTextColor(hdc, RGB(255, 255, 255));  // White text for timer
+    SetBkMode(hdc, TRANSPARENT); 
+    SetTextColor(hdc, RGB(255, 255, 255));
 
-    // Convert countdown seconds into MM:SS format
+
     int minutes = countdown / 60;
     int seconds = countdown % 60;
 
     wchar_t timerText[10];
-    wsprintf(timerText, L"%02d:%02d", minutes, seconds);  // MM:SS format
-    TextOut(hdc, windowWidth / 2 - fontSize, timerYOffset, timerText, lstrlen(timerText));  // Center the timer
+    wsprintf(timerText, L"%02d:%02d", minutes, seconds);
+    TextOut(hdc, windowWidth / 2 - fontSize, timerYOffset, timerText, lstrlen(timerText));
 
-    SelectObject(hdc, oldFont);  // Restore original font
-    DeleteObject(hFont);  // Clean up the font
+    SelectObject(hdc, oldFont);  
+    DeleteObject(hFont);
 }
 
 void showTimer(HDC hdc, int countdown) {
@@ -487,18 +496,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case START_TIMER:
         {
             if (!timerRunning) {
-                // Timer is not running, so start it
+
                 timerRunning = true;
-                SetWindowText(hStartTimer, L"Stop Timer");  // Change button to "Stop Timer"
-                SetTimer(hWnd, TIMER_ID, 1000, NULL);  // Start the timer with 1 second interval
-                UpdateDisplay(hWnd);  // Force immediate repaint after starting the timer
+                SetWindowText(hStartTimer, L"Stop Timer"); 
+                SetTimer(hWnd, TIMER_ID, 1000, NULL);
+                UpdateDisplay(hWnd); 
             }
             else {
-                // Timer is running, so stop it (pause)
                 timerRunning = false;
-                SetWindowText(hStartTimer, L"Start Timer");  // Change button back to "Start Timer"
-                KillTimer(hWnd, TIMER_ID);  // Stop the timer
-                UpdateDisplay(hWnd);  // Force repaint after stopping the timer
+                SetWindowText(hStartTimer, L"Start Timer"); 
+                KillTimer(hWnd, TIMER_ID); 
+                UpdateDisplay(hWnd);
             }
         }
         break;
@@ -506,8 +514,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             scoreA = 0;
             scoreB = 0;
-            UpdateDisplay(hWnd); // Force immediate repaint after starting the timer
-            //  MessageBox(hWnd, L"Score have been reset.", L"Success", MB_OK | MB_ICONINFORMATION);
+            UpdateDisplay(hWnd);
+
         }
         break;
         case FINISH:
@@ -523,7 +531,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     break;
     case WM_SIZE:
     {
-        // Get the new window dimensions
+
         int width = LOWORD(lParam);
         int height = HIWORD(lParam);
 
@@ -533,7 +541,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         SetWindowPos(hFinish, NULL, 230, height - 100, 100, 50, SWP_NOZORDER);
 
-        // Ensure the window is repainted correctly
+
         InvalidateRect(hWnd, NULL, TRUE);
         UpdateWindow(hWnd);
     }
@@ -590,6 +598,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 HandleInput(hWnd, rawKB, hDevice, numpad0, scoreB, 5, scoreFiveAdded);
                 break;
             }
+            if (jury1Device == NULL) {
+                jury1Device = hDevice;
+            }
+            else if (jury2Device == NULL && hDevice != jury1Device) {
+                jury2Device = hDevice;
+            }
+            else if (jury3Device == NULL && hDevice != jury1Device && hDevice != jury2Device) {
+                jury3Device = hDevice;
+            }
+
+
+            if (hDevice == jury1Device) {
+                jury1KeyPressed = (rawKB.Flags & RI_KEY_BREAK) == 0;
+            }
+            else if (hDevice == jury2Device) {
+                jury2KeyPressed = (rawKB.Flags & RI_KEY_BREAK) == 0;
+            }
+            else if (hDevice == jury3Device) {
+                jury3KeyPressed = (rawKB.Flags & RI_KEY_BREAK) == 0;
+            }
+
+            UpdateDisplay(hWnd);
         }
 
         delete[] lpb;
@@ -602,12 +632,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (wParam == TIMER_ID) {
             if (countdown > 0) {
                 countdown--;
-                UpdateDisplay(hWnd);  // Repaint to show updated timer
+                UpdateDisplay(hWnd);
             }
             else {
-                KillTimer(hWnd, TIMER_ID); // Stop the timer when it reaches 0
+                KillTimer(hWnd, TIMER_ID); 
                 timerRunning = false;
-                SetWindowText(hStartTimer, L"Start Timer");  // Reset button text to "Start Timer"
+                SetWindowText(hStartTimer, L"Start Timer");
                 MessageBox(hWnd, L"Time's up!", L"Information", MB_OK | MB_ICONINFORMATION);
             }
         }
@@ -625,36 +655,60 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
 
-        // Get the current window size
         RECT clientRect;
         GetClientRect(hWnd, &clientRect);
         int windowWidth = clientRect.right;
         int windowHeight = clientRect.bottom;
 
-        // Calculate half-width for the red and blue sections
         int halfWidth = windowWidth / 2;
 
-        // Define red and blue sections
         RECT redSide = { 0, 0, halfWidth, windowHeight };
         RECT blueSide = { halfWidth, 0, windowWidth, windowHeight };
 
-        // Paint red and blue backgrounds
         PaintRedAndBlueBackground(hdc, redSide, blueSide);
 
-        // Calculate and display player information and score based on window size
-        int fontSize = windowHeight / 10;  // Font size scales with window height
-        int scoreYOffset = windowHeight / 4;  // Y offset for score display
+        int fontSize = windowHeight / 10;
+        int scoreYOffset = windowHeight / 4;
 
-        // Use the global variables playerAName and playerBName here
         DisplayPlayerInfo(hdc, scoreA, scoreB, playerAName, playerBName, halfWidth, windowHeight, fontSize, scoreYOffset);
 
-        // Display Countdown Timer at the center of the window
         int timerYOffset = windowHeight / 2;
         DisplayTimer(hdc, countdown, windowWidth, timerYOffset, fontSize);
+
+        // Jury indicator color change based on input and responsive positioning
+        HBRUSH greenBrush = CreateSolidBrush(RGB(0, 255, 0));  // Active jury color
+        HBRUSH grayBrush = CreateSolidBrush(RGB(200, 200, 200)); // Inactive jury color
+
+        // Set the size and spacing for the jury circles
+        int circleRadius = 25;  // Circle radius
+        int circleSpacing = 20; // Spacing between circles
+        int totalWidth = (circleRadius * 2 * 3) + (circleSpacing * 2); // Total width for 3 circles and spacing
+
+        int startX = (windowWidth - totalWidth) / 2; // Center the circles horizontally
+
+        // Loop through the number of jurors and draw circles dynamically
+        for (int i = 0; i < currentJury; ++i) {
+            // Determine if the current jury is active
+            HBRUSH juryBrush = grayBrush;
+            if ((i == 0 && jury1KeyPressed) || (i == 1 && jury2KeyPressed) || (i == 2 && jury3KeyPressed)) {
+                juryBrush = greenBrush;
+            }
+
+            // Select the appropriate brush and draw the circle
+            SelectObject(hdc, juryBrush);
+            Ellipse(hdc, startX + (i * (circleRadius * 2 + circleSpacing)), 10,
+                startX + (i * (circleRadius * 2 + circleSpacing)) + (circleRadius * 2),
+                10 + (circleRadius * 2));
+        }
+
+        // Cleanup
+        DeleteObject(greenBrush);
+        DeleteObject(grayBrush);
 
         EndPaint(hWnd, &ps);
     }
     break;
+
 
 
 
@@ -670,7 +724,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 INT_PTR CALLBACK SetupMatch(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    static HWND hMainWnd;  // Store the main window handle
+    static HWND hMainWnd;
 
     switch (message)
     {
@@ -688,12 +742,10 @@ INT_PTR CALLBACK SetupMatch(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK)
         {
-            // Get player names
 
             GetDlgItemText(hDlg, IDC_EDIT_PLAYER_A, playerAName, 50);
             GetDlgItemText(hDlg, IDC_EDIT_PLAYER_B, playerBName, 50);
 
-            // Get minutes and seconds from the dialog's edit controls
             wchar_t minutesValue[10], secondsValue[10];
             GetDlgItemText(hDlg, IDC_EDIT_MINUTES, minutesValue, 10);
             GetDlgItemText(hDlg, IDC_EDIT_SECONDS, secondsValue, 10);
@@ -702,14 +754,14 @@ INT_PTR CALLBACK SetupMatch(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
             int seconds = _wtoi(secondsValue);
 
             if (minutes < 0 || seconds < 0 || seconds >= 60) {
-                MessageBox(hDlg, L"Please enter valid minutes and seconds (seconds should be 0-59).", L"Error", MB_OK | MB_ICONERROR);
+                MessageBox(hDlg, L"Invalid timer", L"Error", MB_OK | MB_ICONERROR);
                 return (INT_PTR)TRUE;
             }
 
-            countdown = (minutes * 60) + seconds;  // Set the timer but don't start it
-            EndDialog(hDlg, IDOK);  // Close dialog
+            countdown = (minutes * 60) + seconds;  
+            EndDialog(hDlg, IDOK); 
 
-            InvalidateRect(hMainWnd, NULL, TRUE);  // Forces a repaint
+            InvalidateRect(hMainWnd, NULL, TRUE);
             return (INT_PTR)TRUE;
         }
         else if (LOWORD(wParam) == IDCANCEL)
@@ -745,7 +797,7 @@ INT_PTR CALLBACK JuryConfig(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
     case WM_COMMAND:
         if (LOWORD(wParam) == IDC_BUTTON_TEST)
         {
-            // Open the Test Dialog when "Test" is clicked
+
             DialogBox(hInst, MAKEINTRESOURCE(IDC_TEST_KEYBOARD), hDlg, TestKeyboardProc);
             return (INT_PTR)TRUE;
         }
@@ -754,14 +806,14 @@ INT_PTR CALLBACK JuryConfig(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
             HWND hComboBox = GetDlgItem(hDlg, IDC_JURY_NUMBER);
             int selectedJuryIndex = SendMessage(hComboBox, CB_GETCURSEL, 0, 0);
 
-            // Convert index to jury count (add 1 to index because index is 0-based)
+
             currentJury = selectedJuryIndex + 1;
 
-            // Convert the currentJury to a string
+
             wchar_t juryCountStr[10];
             _itow_s(currentJury, juryCountStr, 10);
 
-            // Save the jury count to the config file
+
             if (!WritePrivateProfileString(L"Settings", L"JuryCount", juryCountStr, INI_FILE_PATH))
             {
                 MessageBox(NULL, L"Failed to save jury count.", L"Error", MB_OK | MB_ICONERROR);
@@ -809,17 +861,17 @@ INT_PTR CALLBACK TestKeyboardProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM
         // Jury 1
         HBRUSH jury1Brush = jury1KeyPressed ? greenBrush : grayBrush;
         SelectObject(hdc, jury1Brush);
-        Ellipse(hdc, 50, 50, 100, 100);  // Jury 1 circle
+        Ellipse(hdc, 50, 50, 100, 100);
 
         // Jury 2
         HBRUSH jury2Brush = jury2KeyPressed ? greenBrush : grayBrush;
         SelectObject(hdc, jury2Brush);
-        Ellipse(hdc, 50, 110, 100, 160);  // Jury 2 circle
+        Ellipse(hdc, 50, 110, 100, 160);
 
         // Jury 3
         HBRUSH jury3Brush = jury3KeyPressed ? greenBrush : grayBrush;
         SelectObject(hdc, jury3Brush);
-        Ellipse(hdc, 50, 170, 100, 220);  // Jury 3 circle
+        Ellipse(hdc, 50, 170, 100, 220);
 
         // Cleanup
         DeleteObject(greenBrush);
@@ -849,7 +901,7 @@ INT_PTR CALLBACK TestKeyboardProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM
             RAWKEYBOARD rawKB = raw->data.keyboard;
             HANDLE hDevice = raw->header.hDevice;
 
-            // Assign device to a jury circle if it hasn't been assigned yet
+
             if (jury1Device == NULL) {
                 jury1Device = hDevice;
             }
@@ -860,9 +912,9 @@ INT_PTR CALLBACK TestKeyboardProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM
                 jury3Device = hDevice;
             }
 
-            // Toggle key press status based on which device the input comes from
+
             if (hDevice == jury1Device) {
-                jury1KeyPressed = (rawKB.Flags & RI_KEY_BREAK) == 0;  // Key-down event turns green, key-up turns gray
+                jury1KeyPressed = (rawKB.Flags & RI_KEY_BREAK) == 0;  
             }
             else if (hDevice == jury2Device) {
                 jury2KeyPressed = (rawKB.Flags & RI_KEY_BREAK) == 0;
@@ -871,7 +923,6 @@ INT_PTR CALLBACK TestKeyboardProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM
                 jury3KeyPressed = (rawKB.Flags & RI_KEY_BREAK) == 0;
             }
 
-            // Force repaint to update the circles
             InvalidateRect(hDlg, NULL, TRUE);
         }
 
@@ -888,11 +939,6 @@ INT_PTR CALLBACK TestKeyboardProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM
     }
     return (INT_PTR)FALSE;
 }
-
-
-
-
-
 
 // Message handler for about box.
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
