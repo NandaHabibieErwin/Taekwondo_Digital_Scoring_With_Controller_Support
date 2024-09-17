@@ -128,12 +128,19 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="framework.h" />
+    <ClInclude Include="Helper.h" />
+    <ClInclude Include="Jury.h" />
     <ClInclude Include="Input_Demo.h" />
+    <ClInclude Include="Main.h" />
+    <ClInclude Include="Match.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Input_Demo.cpp" />
+    <ClCompile Include="Helper.cpp" />
+    <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Jury.cpp" />
+    <ClCompile Include="Match.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Input_Demo.rc" />
