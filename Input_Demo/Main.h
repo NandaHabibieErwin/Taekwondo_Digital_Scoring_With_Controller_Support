@@ -4,6 +4,16 @@
 
 #include <windows.h>
 #include <unordered_map>
+#include <algorithm>
+#include <vector>
+#include <memory>
+#include<SFML/Audio.hpp>
+#include <string>
+#include <Shlwapi.h>
+#include <codecvt>
+#include <tchar.h>
+#pragma comment(lib, "Shlwapi.lib") 
+
 
 // Function declarations
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -31,6 +41,9 @@ extern wchar_t playerBName[50];
 extern bool AWinner;
 extern bool BWinner;
 extern bool Tie;
+
+extern int PlayerATotalScore;
+extern int PlayerBTotalScore;
 
 // Jury devices
 extern HANDLE jury1Device;
@@ -71,6 +84,8 @@ extern bool scoreThreeAdded;
 extern bool scoreFourAdded;
 extern bool scoreFiveAdded;
 
+extern bool scoreOneReduced;
+
 // Jury configuration
 extern int currentJury;
 extern int selectedJury;
@@ -82,5 +97,8 @@ extern HWND hTimerInput;
 extern HWND hStartTimer;
 extern HWND hResetScore;
 extern HWND hFinish;
+
+std::string WideStringToString(const std::wstring& wstr);
+void PlayAudio(const std::wstring& audio, bool loop);
 
 #endif // MAIN_H

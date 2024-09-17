@@ -12,7 +12,7 @@ extern int selectedJury;
 // Function declarations
 void HandleInput(HWND hWnd, RAWKEYBOARD& rawKB, HANDLE hDevice,
     std::unordered_map<HANDLE, bool>& numpadState, int& score,
-    int points, bool& scoreAdded, bool isPlayerA);
+    int points, bool& scoreUpdated, bool isPlayerA);
 
 void RegisterMultipleKeyboards(HWND hwnd);
 INT_PTR CALLBACK JuryConfig(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);

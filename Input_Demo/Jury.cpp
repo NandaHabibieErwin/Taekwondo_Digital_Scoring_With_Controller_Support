@@ -5,15 +5,24 @@
 #include <unordered_map>
 #include <windows.h>
 #include <tchar.h>
-
+#include <algorithm>
+#include <vector>
+#include <memory>
+#include<SFML/Audio.hpp>
+#include <string>
+#include <Shlwapi.h> // For PathRemoveFileSpec
+#include <codecvt>
+#pragma comment(lib, "Shlwapi.lib") // Link to Shlwapi.lib for PathRemoveFileSpec
 
 int currentJury = 1;
 int selectedJury = 0;
 
+
+
 // Function to handle input for score management
 void HandleInput(HWND hWnd, RAWKEYBOARD& rawKB, HANDLE hDevice,
     std::unordered_map<HANDLE, bool>& numpadState, int& score,
-    int points, bool& scoreAdded, bool isPlayerA)
+    int points, bool& scoreUpdated, bool isPlayerA)
 {
     if (rawKB.Message == WM_KEYDOWN) {
         giveScoreForA = isPlayerA;  // Track whether it's Player A or B being scored
@@ -30,17 +39,33 @@ void HandleInput(HWND hWnd, RAWKEYBOARD& rawKB, HANDLE hDevice,
         }
     }
 
-    if (pressedCount >= currentJury && !scoreAdded) {
-        score += points;
-        scoreAdded = true;
+    // If exactly 1 jury presses the key and we want to reduce the score
+    if (pressedCount == 1 && points < 0 && !scoreUpdated && score + points >= 0) {
+        score += points;  // Reduce score
+        scoreUpdated = true;
+        PlayAudio(L"scorehit.wav", false);  // Play non-looping sound
+
         InvalidateRect(hWnd, NULL, TRUE);
         UpdateWindow(hWnd);
     }
 
+    // Normal score update logic for adding points
+    if (pressedCount >= currentJury && !scoreUpdated && points > 0) {
+        score += points;
+        scoreUpdated = true;
+        PlayAudio(L"scorehit.wav", false);  // Play non-looping sound
+
+        InvalidateRect(hWnd, NULL, TRUE);
+        UpdateWindow(hWnd);
+    }
+
+
+
     if (pressedCount == 0) {
-        scoreAdded = false;
+        scoreUpdated = false;
     }
 }
+
 
 // Function to register multiple keyboards for input handling
 void RegisterMultipleKeyboards(HWND hwnd) {
