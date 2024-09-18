@@ -3,11 +3,13 @@
 #define MATCH_H
 
 #include <windows.h>
-
+#include "MatchState.h"
 // Function declarations
 INT_PTR CALLBACK SetupMatch(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 DWORD WINAPI SetupMatchThread(LPVOID lpParam);
 void DisplayTimer(HDC hdc, int countdown, int windowWidth, int timerYOffset, int fontSize);
+void DisplayRound(HDC hdc, int windowWidth, int roundYOffset, int fontSize, int currentRound);
+
 
 // Global variables
 
@@ -25,6 +27,8 @@ public:
 // Score-related variables
 extern int scoreA;
 extern int scoreB;
+
+extern int Round_Timer;
 
 
 // Winner status flags

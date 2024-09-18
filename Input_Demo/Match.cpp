@@ -2,9 +2,10 @@
 #include "Helper.h"
 #include <tchar.h>
 #include "resource.h"
+#include "Main.h"
 
-int Round = 0;
-
+int Round = 1;
+int CurrentRound = 1;
 void Match::ShowResult(HDC hdc, int halfWidth, int windowHeight) {
     int fontSize = windowHeight / 20;
     HFONT hResult = CreateFont(fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
@@ -49,9 +50,9 @@ void Match::CheckWinner() {
 
 // Function to display the timer on the screen
 void DisplayTimer(HDC hdc, int countdown, int windowWidth, int timerYOffset, int fontSize) {
-    HFONT hFont = CreateFont(fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-        DEFAULT_PITCH | FF_SWISS, L"Arial");
+    // Create fonts for the timer text
+    HFONT hFont = CreateFont(fontSize * 2, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+        OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, FF_DONTCARE, L"Segoe UI");
 
     if (hFont == NULL) {
         MessageBox(NULL, L"Font creation failed!", L"Error", MB_OK | MB_ICONERROR);
@@ -60,23 +61,40 @@ void DisplayTimer(HDC hdc, int countdown, int windowWidth, int timerYOffset, int
 
     HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, RGB(255, 255, 255));
 
     int minutes = countdown / 60;
     int seconds = countdown % 60;
 
     wchar_t timerText[10];
     wsprintf(timerText, L"%02d:%02d", minutes, seconds);
-    TextOut(hdc, windowWidth / 2 - fontSize, timerYOffset, timerText, lstrlen(timerText));
 
+    // Measure the size of the timer text
+    SIZE timerSize;
+    GetTextExtentPoint32(hdc, timerText, lstrlen(timerText), &timerSize);
+
+    // Calculate the position to center the timer
+    int timerX = (windowWidth - timerSize.cx) / 2;
+    int timerY = timerYOffset;
+
+    // Set up the yellow background for the timer
+    HBRUSH hYellowBrush = CreateSolidBrush(RGB(255, 255, 0));
+    RECT timerRect = { timerX - 10, timerY - 5, timerX + timerSize.cx + 10, timerY + timerSize.cy + 5 };
+    FillRect(hdc, &timerRect, hYellowBrush);
+
+    // Draw the timer text
+    SetTextColor(hdc, RGB(0, 0, 0)); // Black text for timer
+    TextOut(hdc, timerX, timerY, timerText, lstrlen(timerText));
+
+    // Clean up
     SelectObject(hdc, oldFont);
     DeleteObject(hFont);
+    DeleteObject(hYellowBrush);
 }
 
-void DisplayRound(HDC hdc, int countdown, int windowWidth, int timerYOffset, int fontSize) {
-    HFONT hFont = CreateFont(fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-        DEFAULT_PITCH | FF_SWISS, L"Arial");
+void DisplayRound(HDC hdc, int windowWidth, int roundYOffset, int fontSize, int currentRound) {
+    // Create font for the round text
+    HFONT hFont = CreateFont(fontSize * 1.5, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+        OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, FF_DONTCARE, L"Segoe UI");
 
     if (hFont == NULL) {
         MessageBox(NULL, L"Font creation failed!", L"Error", MB_OK | MB_ICONERROR);
@@ -85,15 +103,23 @@ void DisplayRound(HDC hdc, int countdown, int windowWidth, int timerYOffset, int
 
     HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, RGB(255, 255, 255));
 
-    int minutes = countdown / 60;
-    int seconds = countdown % 60;
+    wchar_t roundText[20];
+    wsprintf(roundText, L"Round %d", currentRound);
 
-    wchar_t timerText[10];
-    wsprintf(timerText, L"%02d:%02d", minutes, seconds);
-    TextOut(hdc, windowWidth / 2 - fontSize, timerYOffset, timerText, lstrlen(timerText));
+    // Measure the size of the round text
+    SIZE roundSize;
+    GetTextExtentPoint32(hdc, roundText, lstrlen(roundText), &roundSize);
 
+    // Calculate the position to center the round text
+    int roundX = (windowWidth - roundSize.cx) / 2;
+    int roundY = roundYOffset;
+
+    // Draw the round text
+    SetTextColor(hdc, RGB(255, 255, 255)); // White text
+    TextOut(hdc, roundX, roundY, roundText, lstrlen(roundText));
+
+    // Clean up
     SelectObject(hdc, oldFont);
     DeleteObject(hFont);
 }
@@ -183,6 +209,7 @@ INT_PTR CALLBACK SetupMatch(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
                 // Save the settings and update the countdown
                 SaveSettings();
                 countdown = (minutes * 60) + seconds;
+                Round_Timer = countdown;
                 EndDialog(hDlg, IDOK);
 
                 InvalidateRect(hMainWnd, NULL, TRUE);

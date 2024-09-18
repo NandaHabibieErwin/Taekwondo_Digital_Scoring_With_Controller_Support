@@ -1,0 +1,13 @@
+#pragma once
+
+#ifndef MATCHSTATE_H
+#define MATCHSTATE_H
+
+enum MatchState {
+    MATCH_STATE_IDLE,
+    MATCH_STATE_ACTIVE_ROUND,
+    MATCH_STATE_REST_PERIOD,
+    MATCH_STATE_OVER
+};
+
+#endif // MATCHSTATE_H
