@@ -3,8 +3,77 @@
 #include <tchar.h>
 #include "resource.h"
 
+int Round = 0;
+
+void Match::ShowResult(HDC hdc, int halfWidth, int windowHeight) {
+    int fontSize = windowHeight / 20;
+    HFONT hResult = CreateFont(fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
+    SelectObject(hdc, hResult);
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, RGB(255, 255, 0));
+
+    int textYOffset = fontSize * 2;
+
+    if (AWinner) {
+        TextOut(hdc, (halfWidth / 2) - 50, textYOffset, L"Winner", 6);
+    }
+    else if (BWinner) {
+        TextOut(hdc, halfWidth + (halfWidth / 2) - 50, textYOffset, L"Winner", 6);
+    }
+    else if (Tie) {
+        TextOut(hdc, (halfWidth)-25, textYOffset, L"Tie", 3);
+    }
+    DeleteObject(hResult);
+
+}
+
+void Match::CheckWinner() {
+    if (AWinner || BWinner || Tie) {
+        return;
+    }
+    if (scoreA > scoreB) {
+        AWinner = true;
+    }
+    else if (scoreB > scoreA) {
+        BWinner = true;
+    }
+    else if (scoreA = scoreB) {
+        Tie = true;
+    }
+    if (AWinner || BWinner || Tie) {
+        InvalidateRect(GetActiveWindow(), NULL, TRUE);
+        UpdateWindow(GetActiveWindow());
+    }
+}
+
 // Function to display the timer on the screen
 void DisplayTimer(HDC hdc, int countdown, int windowWidth, int timerYOffset, int fontSize) {
+    HFONT hFont = CreateFont(fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+        DEFAULT_PITCH | FF_SWISS, L"Arial");
+
+    if (hFont == NULL) {
+        MessageBox(NULL, L"Font creation failed!", L"Error", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, RGB(255, 255, 255));
+
+    int minutes = countdown / 60;
+    int seconds = countdown % 60;
+
+    wchar_t timerText[10];
+    wsprintf(timerText, L"%02d:%02d", minutes, seconds);
+    TextOut(hdc, windowWidth / 2 - fontSize, timerYOffset, timerText, lstrlen(timerText));
+
+    SelectObject(hdc, oldFont);
+    DeleteObject(hFont);
+}
+
+void DisplayRound(HDC hdc, int countdown, int windowWidth, int timerYOffset, int fontSize) {
     HFONT hFont = CreateFont(fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
         OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
         DEFAULT_PITCH | FF_SWISS, L"Arial");
@@ -50,6 +119,12 @@ DWORD WINAPI SetupMatchThread(LPVOID lpParam) {
         _itow_s(seconds, secondsStr, 10);
         SetWindowText(GetDlgItem(hDlg, IDC_EDIT_MINUTES), minutesStr);
         SetWindowText(GetDlgItem(hDlg, IDC_EDIT_SECONDS), secondsStr);
+
+        HWND hComboBox = GetDlgItem(hDlg, IDC_MATCH_ROUND);
+        SendMessage(hComboBox, CB_ADDSTRING, 0, (LPARAM)L"1 Round");
+        SendMessage(hComboBox, CB_ADDSTRING, 0, (LPARAM)L"2 Round");
+        SendMessage(hComboBox, CB_ADDSTRING, 0, (LPARAM)L"3 Round");
+        SendMessage(hComboBox, CB_SETCURSEL, (Round <= 3 ? (Round - 1) : 0), 0);
     }
     catch (...) {
         SetWindowText(GetDlgItem(hDlg, IDC_EDIT_MINUTES), L"0");

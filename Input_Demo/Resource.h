@@ -23,15 +23,22 @@
 #define TIMER_INTERVAL                  1000
 #define IDC_SLIDER1                     1000
 #define TIMER_INPUT                     1001
+#define IDC_ROUND                       1001
+#define IDC_MATCH_ROUND                 1001
 #define IDC_EDIT_TIMER                  1004
 #define START_TIMER                     1005
 #define RESET_SCORE                     1006
 #define FINISH                          1007
+#define NEXT_ROUND						1008
 #define IDC_STATIC_IMAGE_A              2001
 #define IDC_STATIC_IMAGE_B              2002
 #define IDC_BUTTON_UPLOAD_A             2003
 #define IDC_BUTTON_UPLOAD_B             2004
 #define ID_MATCH_SETUP                  32771
+#define INI_FILE_PATH L".\\config.ini"
+#define MAX_LOADSTRING 100
+#define SECTION_NAME L"Settings"
+#define KEY_JURY_COUNT L"JuryCount"
 #define ID_CONFIG_JURY                  32772
 #define IDC_JURY_NUMBER                 32773
 #define IDC_EDIT_MINUTES                32774
@@ -44,11 +51,6 @@
 #define IDM_SETTIMER                    40001
 #define IDC_STATIC                      -1
 
-#define INI_FILE_PATH L".\\config.ini"
-#define MAX_LOADSTRING 100
-#define SECTION_NAME L"Settings"
-#define KEY_JURY_COUNT L"JuryCount"
-
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
@@ -56,7 +58,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        131
 #define _APS_NEXT_COMMAND_VALUE         32773
-#define _APS_NEXT_CONTROL_VALUE         1001
+#define _APS_NEXT_CONTROL_VALUE         1002
 #define _APS_NEXT_SYMED_VALUE           110
 #endif
 #endif

@@ -5,6 +5,7 @@
     #include "framework.h"
     #include "Resource.h"
     #include "Jury.h"
+    #include "Match.h"
     #include "Helper.h"     // For settings loading and saving
     #include "Match.h"      // For match and timer configuration dialog
     #include <windowsx.h>   // For additional Windows message handling macros
@@ -28,9 +29,11 @@
     bool Tie = false;
     bool timerRunning = false;
     int countdown = 0;
+    int Round_Timer = 0;
     HWND hStartTimer = nullptr;
     HWND hResetScore = nullptr;
     HWND hFinish = nullptr;
+    HWND hNextRound = nullptr;
 
     // Variables to manage scoring
     bool giveScoreForA = false;
@@ -64,6 +67,8 @@
     std::unordered_map<HANDLE, bool> numpadMulti;
     std::unordered_map<HANDLE, bool> numpadSub;
     std::unordered_map<HANDLE, bool> numpadAdd;
+
+    Match match;
 
     std::unordered_map<HANDLE, bool> numpad;
     std::unordered_map<HANDLE, bool> addedScoreA;
@@ -186,48 +191,6 @@
         return (int)msg.wParam;
     }
 
-    void ShowResult(HDC hdc, int halfWidth, int windowHeight) {
-        int fontSize = windowHeight / 20;
-        HFONT hResult = CreateFont(fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-            OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");    
-        SelectObject(hdc, hResult);
-        SetBkMode(hdc, TRANSPARENT);
-        SetTextColor(hdc, RGB(255, 255, 0));
-
-        int textYOffset = fontSize * 2;
-
-        if (AWinner) {
-            TextOut(hdc, (halfWidth / 2) - 50, textYOffset, L"Winner", 6);
-        }
-        else if (BWinner) {
-            TextOut(hdc, halfWidth + (halfWidth / 2) - 50, textYOffset, L"Winner", 6);
-        }
-        else if (Tie) {
-            TextOut(hdc, (halfWidth) - 25, textYOffset, L"Tie", 3);
-        }
-        DeleteObject(hResult);
-    
-    }
-
-    void CheckWinner() {
-        if (AWinner || BWinner || Tie) {
-            return;
-        }
-        if (scoreA > scoreB) {
-            AWinner = true;
-        }
-        else if (scoreB > scoreA) {
-            BWinner = true;
-        }
-        else if (scoreA = scoreB) {
-            Tie = true;
-        }
-        if (AWinner || BWinner || Tie) {
-            InvalidateRect(GetActiveWindow(), NULL, TRUE);
-            UpdateWindow(GetActiveWindow());
-        }
-    }
-
 
 
     //
@@ -302,6 +265,9 @@
 
         hFinish = CreateWindowEx(0, L"BUTTON", L"Finish", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
             230, 600, 100, 50, hWnd, (HMENU)FINISH, hInstance, NULL);
+
+        hNextRound = CreateWindowEx(0, L"BUTTON", L"Next", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            370, 600, 100, 50, hWnd, (HMENU)FINISH, hInstance, NULL);        
 
         TCHAR exePath[MAX_PATH];
         GetModuleFileName(NULL, exePath, MAX_PATH);
@@ -465,6 +431,7 @@
                     BWinner = false;
                     Tie = false;
                     timerRunning = true;
+                    Round_Timer = countdown;
                     SetWindowText(hStartTimer, L"Pause"); 
                     SetTimer(hWnd, TIMER_ID, 1000, NULL);
                     UpdateDisplay(hWnd); 
@@ -496,6 +463,10 @@
 
             }
             break;
+            case NEXT_ROUND:
+                countdown = Round_Timer;
+                UpdateDisplay(hWnd);
+                break;
             case FINISH:
              // scoreA = 0;
              // scoreB = 0;
@@ -514,10 +485,10 @@
 
             int buttonWidth = 50;  // Width of each button
             int buttonHeight = 30;  // Height of each button
-            int buttonSpacing = 20; // Space between buttons
+            int buttonSpacing = 10; // Space between buttons
 
 
-            int totalButtonWidth = (buttonWidth * 3) + (buttonSpacing * 2);
+            int totalButtonWidth = (buttonWidth * 4) + (buttonSpacing * 2);
 
 
             int buttonStartX = (width - totalButtonWidth) / 2;
@@ -526,6 +497,7 @@
             SetWindowPos(hStartTimer, NULL, buttonStartX, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
             SetWindowPos(hResetScore, NULL, buttonStartX + buttonWidth + buttonSpacing, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
             SetWindowPos(hFinish, NULL, buttonStartX + (buttonWidth + buttonSpacing) * 2, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
+            SetWindowPos(hNextRound, NULL, buttonStartX + (buttonWidth + buttonSpacing) * 3, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
 
             InvalidateRect(hWnd, NULL, TRUE);
             UpdateWindow(hWnd);
@@ -637,7 +609,7 @@
                     timerRunning = false;
                     SetWindowText(hStartTimer, L"Start");
                     PlaySound(TEXT("sound/matchover.wav"), NULL, SND_FILENAME | SND_SYNC);          
-                    CheckWinner();
+                    match.CheckWinner();
                     UpdateDisplay(hWnd);
                 //  MessageBox(hWnd, L"Time's up!", L"Information", MB_OK | MB_ICONINFORMATION);   
                 }
@@ -721,7 +693,8 @@
                 // Left side for Player A
                 HBRUSH leftJuryBrush = grayBrush;
                 HBRUSH rightJuryBrush = grayBrush;
-
+                int yOffset = 30;
+                int leftXOffset = 20;
                 // Determine which jury circle should be active
                 if ((i == 0 && jury1KeyPressed && giveScoreForA) || (i == 1 && jury2KeyPressed && giveScoreForA) || (i == 2 && jury3KeyPressed && giveScoreForA)) {
                     leftJuryBrush = greenBrush;
@@ -731,16 +704,21 @@
                 }
 
                 // Draw circles for left side (Player A)
+               // Draw circles for left side (Player A)
+                  // Adjust this value to move circles further left
                 SelectObject(memDC, leftJuryBrush);
-                Ellipse(memDC, 50, 50 + (i * (circleDiameter + circleSpacing)), 50 + circleDiameter, 50 + circleDiameter + (i * (circleDiameter + circleSpacing)));
+                Ellipse(memDC, leftXOffset, 50 - yOffset + (i * (circleDiameter + circleSpacing)),
+                    leftXOffset + circleDiameter, 50 + circleDiameter - yOffset + (i * (circleDiameter + circleSpacing)));
 
                 // Draw circles for right side (Player B)
                 SelectObject(memDC, rightJuryBrush);
-                Ellipse(memDC, windowWidth - circleSpacing - circleDiameter, 50 + (i * (circleDiameter + circleSpacing)), windowWidth - circleSpacing, 50 + circleDiameter + (i * (circleDiameter + circleSpacing)));
+                Ellipse(memDC, windowWidth - circleSpacing - circleDiameter, 50 - yOffset + (i * (circleDiameter + circleSpacing)),
+                    windowWidth - circleSpacing, 50 + circleDiameter - yOffset + (i * (circleDiameter + circleSpacing)));
             }
+        
 
             if (AWinner || BWinner || Tie) {
-                ShowResult(memDC, halfWidth, windowHeight);
+                match.ShowResult(memDC, halfWidth, windowHeight);
                 UpdateDisplay(hWnd);
             }
 

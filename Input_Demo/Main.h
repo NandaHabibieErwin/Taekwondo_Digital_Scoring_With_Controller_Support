@@ -29,21 +29,12 @@ extern HINSTANCE hInst;
 extern WCHAR szTitle[];
 extern WCHAR szWindowClass[];
 
-// Score-related variables
-extern int scoreA;
-extern int scoreB;
 
-// Player Names
-extern wchar_t playerAName[50];
-extern wchar_t playerBName[50];
-
-// Winner status flags
-extern bool AWinner;
-extern bool BWinner;
-extern bool Tie;
 
 extern int PlayerATotalScore;
 extern int PlayerBTotalScore;
+
+
 
 // Jury devices
 extern HANDLE jury1Device;
@@ -85,12 +76,6 @@ extern bool scoreFourAdded;
 extern bool scoreFiveAdded;
 
 extern bool scoreOneReduced;
-
-// Jury configuration
-extern int currentJury;
-extern int selectedJury;
-extern bool timerRunning;
-extern int countdown;
 
 // HWND variables for UI elements
 extern HWND hTimerInput;

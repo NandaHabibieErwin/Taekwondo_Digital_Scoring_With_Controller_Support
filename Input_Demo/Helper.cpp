@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include <tchar.h>
 #include "Helper.h"
+#include "Match.h"
 
 #define INI_FILE_PATH L".\\config.ini"
 
@@ -9,6 +10,8 @@ void SaveSettings() {
 
     wchar_t juryCountStr[10];
     _itow_s(currentJury, juryCountStr, 10);
+    wchar_t RoundStr[10];
+    _itow_s(Round, RoundStr, 10);
     if (!WritePrivateProfileString(L"Settings", L"JuryCount", juryCountStr, INI_FILE_PATH)) {
         MessageBox(NULL, L"Failed to save jury count.", L"Error", MB_OK | MB_ICONERROR);
     }
@@ -22,6 +25,13 @@ void SaveSettings() {
         MessageBox(NULL, L"Failed to save Player B's name.", L"Error", MB_OK | MB_ICONERROR);
     }
 
+    if (!WritePrivateProfileString(L"Settings", L"PlayerB", playerBName, INI_FILE_PATH)) {
+        MessageBox(NULL, L"Failed to save Player B's name.", L"Error", MB_OK | MB_ICONERROR);
+    }
+
+    if (!WritePrivateProfileString(L"Settings", L"Round", RoundStr, INI_FILE_PATH)) {
+        MessageBox(NULL, L"Failed to save round", L"Error", MB_OK | MB_ICONERROR);
+    }
 
     wchar_t timerValue[10];
     _itow_s(countdown, timerValue, 10);
@@ -37,6 +47,8 @@ void LoadSettings() {
 
     GetPrivateProfileString(L"Settings", L"PlayerA", L"Player A", playerAName, 50, INI_FILE_PATH);
     GetPrivateProfileString(L"Settings", L"PlayerB", L"Player B", playerBName, 50, INI_FILE_PATH);
+    
+    Round = GetPrivateProfileInt(L"Settings", L"Round",1, INI_FILE_PATH);
 
     wchar_t timerValue[10];
     GetPrivateProfileString(L"Settings", L"Timer[Second]", L"0", timerValue, 10, INI_FILE_PATH);
