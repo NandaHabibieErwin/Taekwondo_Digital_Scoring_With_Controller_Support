@@ -31,20 +31,23 @@ void Match::ShowResult(HDC hdc, int halfWidth, int windowHeight) {
 
 void Match::CheckWinner() {
     if (AWinner || BWinner || Tie) {
-        return;
+        return; 
     }
+
     if (scoreA > scoreB) {
         AWinner = true;
     }
     else if (scoreB > scoreA) {
         BWinner = true;
     }
-    else if (scoreA = scoreB) {
+    else if (scoreA == scoreB) {
         Tie = true;
     }
+    
     if (AWinner || BWinner || Tie) {
-        InvalidateRect(GetActiveWindow(), NULL, TRUE);
-        UpdateWindow(GetActiveWindow());
+        HWND hWnd = GetActiveWindow();
+        InvalidateRect(hWnd, NULL, TRUE);
+        UpdateWindow(hWnd);
     }
 }
 
@@ -91,7 +94,7 @@ void DisplayTimer(HDC hdc, int countdown, int windowWidth, int timerYOffset, int
     DeleteObject(hYellowBrush);
 }
 
-void DisplayRound(HDC hdc, int windowWidth, int roundYOffset, int fontSize, int currentRound) {
+void DisplayRound(HDC hdc, int windowWidth, int roundYOffset, int fontSize, int currentRound, int Round) {
     // Create font for the round text
     HFONT hFont = CreateFont(fontSize * 1.5, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
         OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, FF_DONTCARE, L"Segoe UI");
@@ -105,7 +108,7 @@ void DisplayRound(HDC hdc, int windowWidth, int roundYOffset, int fontSize, int 
     SetBkMode(hdc, TRANSPARENT);
 
     wchar_t roundText[20];
-    wsprintf(roundText, L"Round %d", currentRound);
+    wsprintf(roundText, L"Round %d/%d", currentRound, Round);
 
     // Measure the size of the round text
     SIZE roundSize;
@@ -192,6 +195,9 @@ INT_PTR CALLBACK SetupMatch(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
                 wcscpy_s(playerAName, validatePlayerAName);
                 wcscpy_s(playerBName, validatePlayerBName);
 
+                int SelectedRound = (int)SendMessage(GetDlgItem(hDlg, IDC_MATCH_ROUND), CB_GETCURSEL, 0, 0);
+                Round = SelectedRound + 1;
+
                 // Retrieve timer values
                 wchar_t minutesValue[10], secondsValue[10];
                 GetDlgItemText(hDlg, IDC_EDIT_MINUTES, minutesValue, 10);
@@ -210,6 +216,12 @@ INT_PTR CALLBACK SetupMatch(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
                 SaveSettings();
                 countdown = (minutes * 60) + seconds;
                 Round_Timer = countdown;
+                if (CurrentRound == Round) {
+                    DisableButton(hNextRound);
+                }
+                else {
+                    EnableButton(hNextRound);
+                }
                 EndDialog(hDlg, IDOK);
 
                 InvalidateRect(hMainWnd, NULL, TRUE);

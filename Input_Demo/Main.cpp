@@ -30,6 +30,7 @@ bool AWinner = false;
 bool BWinner = false;
 bool Tie = false;
 bool timerRunning = false;
+bool isRestTime = false;
 int countdown = 0;
 int Round_Timer = 120;
 HWND hStartTimer = nullptr;
@@ -56,7 +57,13 @@ bool jury3KeyPressed = false;
 
 HFONT hButtonFont = NULL;
 
-
+HFONT hResultFont = nullptr;
+HFONT hScoreFont = nullptr;
+HFONT hNameFont = nullptr;
+HBRUSH hYellowBrush = nullptr;
+HBRUSH hRedBrush = nullptr;
+HBRUSH hBlueBrush = nullptr;
+HPEN hBorderPen = nullptr;
 
 std::unordered_map<HANDLE, bool> numpad0;
 std::unordered_map<HANDLE, bool> numpad1;
@@ -98,6 +105,80 @@ std::string WideStringToString(const std::wstring& wstr) {
 
 static std::list<std::unique_ptr<sf::Sound>> activeSounds;
 
+void EnableButton(HWND Button) {
+    EnableWindow(Button, true);
+}
+
+void DisableButton(HWND Button) {
+    EnableWindow(Button, false);
+}
+
+void InitializeResources() {
+    // Create fonts for the result display
+    if (!hResultFont) {
+        hResultFont = CreateFont(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+            OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+            FF_SWISS, L"Arial");
+    }
+    if (!hScoreFont) {
+        hScoreFont = CreateFont(80, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+            OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+            FF_DONTCARE, L"Segoe UI");
+    }
+    if (!hNameFont) {
+        hNameFont = CreateFont(40, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+            OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+            FF_DONTCARE, L"Segoe UI");
+    }
+
+    // Create brushes for background colors
+    if (!hYellowBrush) {
+        hYellowBrush = CreateSolidBrush(RGB(255, 255, 0));  // Yellow for timer background
+    }
+    if (!hRedBrush) {
+        hRedBrush = CreateSolidBrush(RGB(255, 0, 0));  // Red background for Player A
+    }
+    if (!hBlueBrush) {
+        hBlueBrush = CreateSolidBrush(RGB(0, 0, 255));  // Blue background for Player B
+    }
+
+    // Create pen for borders
+    if (!hBorderPen) {
+        hBorderPen = CreatePen(PS_SOLID, 3, RGB(255, 255, 255));  // White border for UI elements
+    }
+}
+
+void CleanupResources() {
+    // Delete all created resources
+    if (hResultFont) {
+        DeleteObject(hResultFont);
+        hResultFont = nullptr;
+    }
+    if (hScoreFont) {
+        DeleteObject(hScoreFont);
+        hScoreFont = nullptr;
+    }
+    if (hNameFont) {
+        DeleteObject(hNameFont);
+        hNameFont = nullptr;
+    }
+    if (hYellowBrush) {
+        DeleteObject(hYellowBrush);
+        hYellowBrush = nullptr;
+    }
+    if (hRedBrush) {
+        DeleteObject(hRedBrush);
+        hRedBrush = nullptr;
+    }
+    if (hBlueBrush) {
+        DeleteObject(hBlueBrush);
+        hBlueBrush = nullptr;
+    }
+    if (hBorderPen) {
+        DeleteObject(hBorderPen);
+        hBorderPen = nullptr;
+    }
+}
 
 
 void PlayAudio(const std::wstring& audio, bool loop) {
@@ -191,6 +272,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                 // Nothing for now
             }
         }
+
     }
 
 
@@ -253,7 +335,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     else {
         LoadSettings();
         Round_Timer = countdown;
-    }
+    }   
 
     hButtonFont = CreateFont(
         18, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
@@ -316,6 +398,7 @@ void UpdateDisplay(HWND hWnd) {
     InvalidateRect(hWnd, NULL, TRUE);
     UpdateWindow(hWnd);
 }
+
 
 void showScore(HDC hdc) {
     wchar_t scoreTextA[50];
@@ -547,17 +630,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         }
         break;
-        case NEXT_ROUND:
-            
-                CurrentRound++;
-                countdown = Round_Timer; // Reset countdown to initial value
-                timerRunning = false;    // Ensure timer is not running
-                SetWindowText(hStartTimer, L"Start"); // Update button text
+        case NEXT_ROUND:                                     
+                if (CurrentRound >= Round) {
+                    DisableButton(hNextRound);
+                    UpdateDisplay(hWnd);
+                }
+                else{
+                    CurrentRound++;
+                    if (CurrentRound >= Round) {
+                        DisableButton(hNextRound);
+                        UpdateDisplay(hWnd);
+                    }               
+                countdown = Round_Timer;
+                timerRunning = false;
+                SetWindowText(hStartTimer, L"Start");
                 UpdateDisplay(hWnd);
+            }
 
             break;
         case FINISH:
-            timerRunning = false; // Stop the timer
+            timerRunning = false;
             KillTimer(hWnd, TIMER_ID);
             // scoreA = 0;
             // scoreB = 0;
@@ -693,6 +785,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 for (int i = 0; i < menuCount; i++) {
                     EnableMenuItem(hMenu, i, MF_BYPOSITION | MF_GRAYED);
                 }
+                
                 DrawMenuBar(hWnd);
 
                 if (countdown <= 10 && countdown > 0) {
@@ -758,7 +851,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         int roundYOffset = timerYOffset + (fontSize * 3) + 20; // Position below the timer
 
         DisplayTimer(memDC, countdown, windowWidth, timerYOffset, fontSize);
-        DisplayRound(memDC, windowWidth, roundYOffset, fontSize, Round);
+        DisplayRound(memDC, windowWidth, roundYOffset, fontSize, CurrentRound, Round);
         HBRUSH greenBrush;
         if (scoreOneReduced) {
             greenBrush = CreateSolidBrush(RGB(200, 0, 0));  // Active jury color

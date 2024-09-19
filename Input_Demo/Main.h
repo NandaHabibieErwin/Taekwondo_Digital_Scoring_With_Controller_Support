@@ -24,17 +24,25 @@ INT_PTR CALLBACK    SetupMatch(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    JuryConfig(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    TestKeyboardProc(HWND, UINT, WPARAM, LPARAM);
 
+void EnableButton(HWND Button);
+void DisableButton(HWND Button);
+
 // Global variables for the application
 extern HINSTANCE hInst;
 extern WCHAR szTitle[];
 extern WCHAR szWindowClass[];
 
-
+extern HWND hStartTimer;
+extern HWND hResetScore;
+extern HWND hFinish;
+extern HWND hNextRound;
 
 extern int PlayerATotalScore;
 extern int PlayerBTotalScore;
 
+extern bool timerRunning;
 
+extern int RestTimer;
 
 // Jury devices
 extern HANDLE jury1Device;
@@ -74,6 +82,8 @@ extern bool scoreTwoAdded;
 extern bool scoreThreeAdded;
 extern bool scoreFourAdded;
 extern bool scoreFiveAdded;
+
+
 
 extern bool scoreOneReduced;
 

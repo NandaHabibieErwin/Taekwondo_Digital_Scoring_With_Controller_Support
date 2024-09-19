@@ -8,7 +8,8 @@
 INT_PTR CALLBACK SetupMatch(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 DWORD WINAPI SetupMatchThread(LPVOID lpParam);
 void DisplayTimer(HDC hdc, int countdown, int windowWidth, int timerYOffset, int fontSize);
-void DisplayRound(HDC hdc, int windowWidth, int roundYOffset, int fontSize, int currentRound);
+void DisplayRound(HDC hdc, int windowWidth, int roundYOffset, int fontSize, int currentRound, int Round);
+void DisplayTotalScore(HDC hdc, int totalScoreA, int totalScoreB, int halfWidth, int windowHeight);
 
 
 // Global variables
