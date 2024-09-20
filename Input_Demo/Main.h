@@ -12,6 +12,7 @@
 #include <Shlwapi.h>
 #include <codecvt>
 #include <tchar.h>
+#include "Match.h"
 #pragma comment(lib, "Shlwapi.lib") 
 
 

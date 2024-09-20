@@ -5,16 +5,33 @@
 #include "Main.h"
 
 int Round = 1;
+bool WinnerDecided = false;
 int CurrentRound = 1;
+HFONT hResultFont;
+
+
+
 void Match::ShowResult(HDC hdc, int halfWidth, int windowHeight) {
-    int fontSize = windowHeight / 20;
-    HFONT hResult = CreateFont(fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
-    SelectObject(hdc, hResult);
+    static bool fontInitialized = false;
+    static HFONT hResultFont = nullptr; // Static to persist across calls
+
+    // Only create the font once
+    if (!fontInitialized) {
+        int fontSize = windowHeight / 20;
+        hResultFont = CreateFont(fontSize, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+            OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
+        fontInitialized = true;
+    }
+
+    // If the font was successfully created, select it into the HDC
+    if (hResultFont != nullptr) {
+        SelectObject(hdc, hResultFont);
+    }
+
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, RGB(255, 255, 0));
 
-    int textYOffset = fontSize * 2;
+    int textYOffset = windowHeight / 10;
 
     if (AWinner) {
         TextOut(hdc, (halfWidth / 2) - 50, textYOffset, L"Winner", 6);
@@ -25,31 +42,35 @@ void Match::ShowResult(HDC hdc, int halfWidth, int windowHeight) {
     else if (Tie) {
         TextOut(hdc, (halfWidth)-25, textYOffset, L"Tie", 3);
     }
-    DeleteObject(hResult);
-
 }
 
 void Match::CheckWinner() {
-    if (AWinner || BWinner || Tie) {
-        return; 
+    // If winner has already been checked, return early
+    if (WinnerDecided) {
+        return; // Early exit if the winner is already determined
     }
 
     if (scoreA > scoreB) {
         AWinner = true;
+        BWinner = false;
+        Tie = false;
     }
     else if (scoreB > scoreA) {
         BWinner = true;
+        AWinner = false;
+        Tie = false;
     }
-    else if (scoreA == scoreB) {
+    else {
         Tie = true;
+        AWinner = false;
+        BWinner = false;
     }
-    
-    if (AWinner || BWinner || Tie) {
-        HWND hWnd = GetActiveWindow();
-        InvalidateRect(hWnd, NULL, TRUE);
-        UpdateWindow(hWnd);
-    }
+
+    // Set the winnerChecked flag to true to prevent future calls
+    WinnerDecided = true;
 }
+
+
 
 // Function to display the timer on the screen
 void DisplayTimer(HDC hdc, int countdown, int windowWidth, int timerYOffset, int fontSize) {
@@ -222,6 +243,7 @@ INT_PTR CALLBACK SetupMatch(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
                 else {
                     EnableButton(hNextRound);
                 }
+                CurrentMatchState = Match::MATCH_IDLE;
                 EndDialog(hDlg, IDOK);
 
                 InvalidateRect(hMainWnd, NULL, TRUE);

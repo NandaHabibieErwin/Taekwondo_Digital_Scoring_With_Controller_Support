@@ -27,7 +27,7 @@
 #define IDC_MATCH_ROUND                 1001
 #define IDC_EDIT_TIMER                  1004
 #define START_TIMER                     1005
-#define RESET_SCORE                     1006
+#define RESET		                    1006
 #define FINISH                          1007
 #define NEXT_ROUND						1008
 #define IDC_STATIC_IMAGE_A              2001

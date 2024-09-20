@@ -7,10 +7,9 @@
 #include "Resource.h"
 #include "Jury.h"
 #include "Match.h"
-#include "Helper.h"     // For settings loading and saving
-#include "Match.h"      // For match and timer configuration dialog
-#include <windowsx.h>   // For additional Windows message handling macros
-#include <tchar.h>      // For Unicode string manipulation
+#include "Helper.h"       
+#include <windowsx.h> 
+#include <tchar.h>      
 #include <shlwapi.h>
 #pragma comment(lib, "Shlwapi.lib")
 #include <unordered_map>
@@ -18,7 +17,6 @@
 #pragma comment(lib, "winmm.lib")
 #pragma comment(lib, "Msimg32.lib")
 
-    // Define and initialize global variables
 int scoreA = 0;
 int scoreB = 0;
 wchar_t playerAName[50] = L"Player A";
@@ -33,8 +31,9 @@ bool timerRunning = false;
 bool isRestTime = false;
 int countdown = 0;
 int Round_Timer = 120;
+int RestTimer = 6;
 HWND hStartTimer = nullptr;
-HWND hResetScore = nullptr;
+HWND hReset = nullptr;
 HWND hFinish = nullptr;
 HWND hNextRound = nullptr;
 
@@ -57,13 +56,14 @@ bool jury3KeyPressed = false;
 
 HFONT hButtonFont = NULL;
 
-HFONT hResultFont = nullptr;
 HFONT hScoreFont = nullptr;
 HFONT hNameFont = nullptr;
 HBRUSH hYellowBrush = nullptr;
 HBRUSH hRedBrush = nullptr;
 HBRUSH hBlueBrush = nullptr;
 HPEN hBorderPen = nullptr;
+
+Match::MATCH_STATE CurrentMatchState = Match::MATCH_IDLE;
 
 std::unordered_map<HANDLE, bool> numpad0;
 std::unordered_map<HANDLE, bool> numpad1;
@@ -82,6 +82,7 @@ std::unordered_map<HANDLE, bool> numpadSub;
 std::unordered_map<HANDLE, bool> numpadAdd;
 
 Match match;
+
 
 std::unordered_map<HANDLE, bool> numpad;
 std::unordered_map<HANDLE, bool> addedScoreA;
@@ -106,78 +107,11 @@ std::string WideStringToString(const std::wstring& wstr) {
 static std::list<std::unique_ptr<sf::Sound>> activeSounds;
 
 void EnableButton(HWND Button) {
-    EnableWindow(Button, true);
+    EnableWindow(Button, true);    
 }
 
 void DisableButton(HWND Button) {
     EnableWindow(Button, false);
-}
-
-void InitializeResources() {
-    // Create fonts for the result display
-    if (!hResultFont) {
-        hResultFont = CreateFont(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-            OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-            FF_SWISS, L"Arial");
-    }
-    if (!hScoreFont) {
-        hScoreFont = CreateFont(80, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-            OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-            FF_DONTCARE, L"Segoe UI");
-    }
-    if (!hNameFont) {
-        hNameFont = CreateFont(40, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-            OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-            FF_DONTCARE, L"Segoe UI");
-    }
-
-    // Create brushes for background colors
-    if (!hYellowBrush) {
-        hYellowBrush = CreateSolidBrush(RGB(255, 255, 0));  // Yellow for timer background
-    }
-    if (!hRedBrush) {
-        hRedBrush = CreateSolidBrush(RGB(255, 0, 0));  // Red background for Player A
-    }
-    if (!hBlueBrush) {
-        hBlueBrush = CreateSolidBrush(RGB(0, 0, 255));  // Blue background for Player B
-    }
-
-    // Create pen for borders
-    if (!hBorderPen) {
-        hBorderPen = CreatePen(PS_SOLID, 3, RGB(255, 255, 255));  // White border for UI elements
-    }
-}
-
-void CleanupResources() {
-    // Delete all created resources
-    if (hResultFont) {
-        DeleteObject(hResultFont);
-        hResultFont = nullptr;
-    }
-    if (hScoreFont) {
-        DeleteObject(hScoreFont);
-        hScoreFont = nullptr;
-    }
-    if (hNameFont) {
-        DeleteObject(hNameFont);
-        hNameFont = nullptr;
-    }
-    if (hYellowBrush) {
-        DeleteObject(hYellowBrush);
-        hYellowBrush = nullptr;
-    }
-    if (hRedBrush) {
-        DeleteObject(hRedBrush);
-        hRedBrush = nullptr;
-    }
-    if (hBlueBrush) {
-        DeleteObject(hBlueBrush);
-        hBlueBrush = nullptr;
-    }
-    if (hBorderPen) {
-        DeleteObject(hBorderPen);
-        hBorderPen = nullptr;
-    }
 }
 
 
@@ -351,15 +285,16 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     }
     RegisterMultipleKeyboards(hWnd);
 
+
     // Start Button
     hStartTimer = CreateWindowEx(0, L"BUTTON", L"Start", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         10, 600, 100, 50, hWnd, (HMENU)START_TIMER, hInstance, NULL);
     SendMessage(hStartTimer, WM_SETFONT, (WPARAM)hButtonFont, TRUE);
 
     // Reset Button
-    hResetScore = CreateWindowEx(0, L"BUTTON", L"Reset", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        120, 600, 100, 50, hWnd, (HMENU)RESET_SCORE, hInstance, NULL);
-    SendMessage(hResetScore, WM_SETFONT, (WPARAM)hButtonFont, TRUE);
+    hReset = CreateWindowEx(0, L"BUTTON", L"Reset", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        120, 600, 100, 50, hWnd, (HMENU)RESET, hInstance, NULL);
+    SendMessage(hReset, WM_SETFONT, (WPARAM)hButtonFont, TRUE);
 
     // Finish Button
     hFinish = CreateWindowEx(0, L"BUTTON", L"Finish", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
@@ -371,6 +306,12 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
         340, 600, 100, 50, hWnd, (HMENU)NEXT_ROUND, hInstance, NULL);
     SendMessage(hNextRound, WM_SETFONT, (WPARAM)hButtonFont, TRUE);
 
+   if (CurrentMatchState == Match::MATCH_IDLE) {
+        DisableButton(hFinish);
+        DisableButton(hNextRound);
+        DisableButton(hReset);        
+    }
+    
 
     TCHAR exePath[MAX_PATH];
     GetModuleFileName(NULL, exePath, MAX_PATH);
@@ -395,7 +336,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 
 void UpdateDisplay(HWND hWnd) {
-    InvalidateRect(hWnd, NULL, TRUE);
+    InvalidateRect(hWnd, NULL, FALSE);
     UpdateWindow(hWnd);
 }
 
@@ -458,6 +399,57 @@ void PaintRedAndBlueBackground(HDC hdc, RECT redSide, RECT blueSide) {
     gRectBlue.LowerRight = 1;
 
     GradientFill(hdc, vertBlue, 2, &gRectBlue, 1, GRADIENT_FILL_RECT_V);
+}
+
+void UpdateUI() {
+    switch(CurrentMatchState) {
+        case Match::MATCH_IDLE:
+            AWinner = false;
+            BWinner = false;
+            Tie = false;
+            WinnerDecided = false;
+            EnableButton(hStartTimer);
+            DisableButton(hReset);
+            DisableButton(hFinish);
+            DisableButton(hNextRound);
+            break;
+        case Match::MATCH_PLAYING:
+            EnableButton(hFinish);
+            SetWindowText(hStartTimer, L"Pause");
+            break;
+        case Match::MATCH_REST:
+            EnableButton(hReset);
+            EnableButton(hNextRound);
+            SetWindowText(hStartTimer, L"Rest");
+            break;
+        case Match::MATCH_OVER:
+            match.CheckWinner();
+            EnableButton(hReset);
+            DisableButton(hStartTimer);
+            DisableButton(hFinish);
+            DisableButton(hNextRound);
+            break;
+
+    }
+    
+
+}
+
+void SetMatchState(Match::MATCH_STATE NewState) {
+    if (CurrentMatchState != NewState) {
+        CurrentMatchState = NewState;
+        if (CurrentMatchState == Match::MATCH_OVER) {
+            match.CheckWinner();  // Check winner when match is over           
+            PlaySound(TEXT("sound/matchover.wav"), NULL, SND_FILENAME | SND_ASYNC);
+            SetWindowText(hStartTimer, L"Match Over");
+            UpdateDisplay(GetActiveWindow());
+        }
+        UpdateUI();
+    }
+}
+
+enum Match::MATCH_STATE GetMatchState() {
+    return CurrentMatchState;
 }
 
 void DisplayPlayerInfo(HDC hdc, int scoreA, int scoreB, LPCWSTR playerAName, LPCWSTR playerBName, int halfWidth, int windowHeight, int fontSize, int scoreYOffset) {
@@ -577,7 +569,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             HWND hwndButton = (HWND)lParam;
 
             // Check if the button is one of our custom buttons
-            if (hwndButton == hStartTimer || hwndButton == hResetScore ||
+            if (hwndButton == hStartTimer || hwndButton == hReset ||
                 hwndButton == hFinish || hwndButton == hNextRound)
             {
                 SetTextColor(hdcButton, RGB(255, 255, 255)); // White text
@@ -599,19 +591,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 Tie = false;
                 timerRunning = true;
 
-                SetWindowText(hStartTimer, L"Pause");
-                SetTimer(hWnd, TIMER_ID, 1000, NULL);
+                SetWindowText(hStartTimer, CurrentMatchState == Match::MATCH_REST ? L"Resting" : L"Pause");
+                SetTimer(hWnd, TIMER_ID, 1000, NULL);  // Start the timer
+                    CurrentMatchState = Match::MATCH_PLAYING;
                 UpdateDisplay(hWnd);
             }
-            else {
+            else {               
                 timerRunning = false;
                 SetWindowText(hStartTimer, L"Start");
-                KillTimer(hWnd, TIMER_ID);
+                KillTimer(hWnd, TIMER_ID);               
                 UpdateDisplay(hWnd);
             }
         }
         break;
-        case RESET_SCORE:
+        case RESET:
         { // Workaround for the freezing bug, must reset first before opening dialog
             HMENU hMenu = GetMenu(hWnd);
             int menuCount = GetMenuItemCount(hMenu);
@@ -624,8 +617,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             AWinner = false;
             BWinner = false;
             Tie = false;
+            WinnerDecided = false;
             scoreA = 0;
-            scoreB = 0;            
+            scoreB = 0; 
+            countdown = 0;
+            CurrentRound = 1;
+            SetMatchState(Match::MATCH_IDLE);
             UpdateDisplay(hWnd);
 
         }
@@ -679,7 +676,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 
         SetWindowPos(hStartTimer, NULL, buttonStartX, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
-        SetWindowPos(hResetScore, NULL, buttonStartX + buttonWidth + buttonSpacing, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
+        SetWindowPos(hReset, NULL, buttonStartX + buttonWidth + buttonSpacing, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
         SetWindowPos(hFinish, NULL, buttonStartX + (buttonWidth + buttonSpacing) * 2, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
         SetWindowPos(hNextRound, NULL, buttonStartX + (buttonWidth + buttonSpacing) * 3, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
 
@@ -780,38 +777,56 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             if (countdown > 0) {
                 countdown--;
                 UpdateDisplay(hWnd);
-                HMENU hMenu = GetMenu(hWnd);
-                int menuCount = GetMenuItemCount(hMenu);
-                for (int i = 0; i < menuCount; i++) {
-                    EnableMenuItem(hMenu, i, MF_BYPOSITION | MF_GRAYED);
-                }
-                
-                DrawMenuBar(hWnd);
 
-                if (countdown <= 10 && countdown > 0) {
-                    // Play timerunningout.wav in loop
+                if (countdown <= 10 && CurrentMatchState == Match::MATCH_PLAYING) {
+                    // Play warning sound when the match is about to end
                     PlaySound(TEXT("sound/timerunningout.wav"), NULL, SND_FILENAME | SND_ASYNC | SND_LOOP);
                 }
             }
             else {
-                // Stop any playing sounds
-                PlaySound(NULL, NULL, 0);
-
-                // Stop the timer
+                // Timer reached 0, now determine the next state
                 KillTimer(hWnd, TIMER_ID);
-                timerRunning = false;
-                SetWindowText(hStartTimer, L"Start");
 
-                // Play matchover.wav asynchronously
-                PlaySound(TEXT("sound/matchover.wav"), NULL, SND_FILENAME | SND_ASYNC);
-
-                // Check the winner and update display
-                match.CheckWinner();
-                UpdateDisplay(hWnd);
+                if (CurrentMatchState == Match::MATCH_PLAYING) {
+                    // Match playing time is over
+                    if (CurrentRound >= Round) {
+                        // No more rounds, match is over
+                        SetMatchState(Match::MATCH_OVER);
+                        
+                    }
+                    else {
+                        // Start rest time if more rounds are left
+                        countdown = RestTimer;
+                        SetMatchState(Match::MATCH_REST);
+                        SetWindowText(hStartTimer, L"Resting");
+                        SetTimer(hWnd, TIMER_ID, 1000, NULL);  // Start rest timer
+                        UpdateDisplay(hWnd);
+                    }
+                }
+                else if (CurrentMatchState == Match::MATCH_REST) {
+                    // Rest time is over, move to the next round
+                    CurrentRound++;
+                    if (CurrentRound > Round) {
+                        // All rounds completed, end the match
+                        SetMatchState(Match::MATCH_OVER);
+                        PlaySound(TEXT("sound/matchover.wav"), NULL, SND_FILENAME | SND_ASYNC);
+                        SetWindowText(hStartTimer, L"Match Over");
+                        UpdateDisplay(hWnd);
+                    }
+                    else {
+                        // Start the next round
+                        countdown = Round_Timer;  // Reset the round timer
+                        SetMatchState(Match::MATCH_PLAYING);  // Back to playing state
+                        SetWindowText(hStartTimer, L"Pause");
+                        SetTimer(hWnd, TIMER_ID, 1000, NULL);  // Restart the round timer
+                        UpdateDisplay(hWnd);
+                    }
+                }
             }
         }
     }
     break;
+
 
     case IDM_SETTIMER:
         DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTIMER), hWnd, SetTimerProc);
@@ -908,9 +923,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
 
 
-        if (AWinner || BWinner || Tie) {
+        if ((AWinner || BWinner || Tie) && (GetMatchState() == Match::MATCH_OVER || GetMatchState() == Match::MATCH_REST)) {
             match.ShowResult(memDC, halfWidth, windowHeight);
-            UpdateDisplay(hWnd);
+            //  UpdateDisplay(hWnd); This causes lag lmao
         }
 
 

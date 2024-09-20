@@ -141,7 +141,6 @@ sfml-system-d.lib;sfml-audio.lib
     <ClInclude Include="Input_Demo.h" />
     <ClInclude Include="Main.h" />
     <ClInclude Include="Match.h" />
-    <ClInclude Include="MatchState.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
