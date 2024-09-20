@@ -127,10 +127,19 @@ void DisplayRound(HDC hdc, int windowWidth, int roundYOffset, int fontSize, int 
 
     HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
     SetBkMode(hdc, TRANSPARENT);
-
+    
     wchar_t roundText[20];
-    wsprintf(roundText, L"Round %d/%d", currentRound, Round);
+    if (CurrentMatchState == Match::MATCH_REST) {
+        wsprintf(roundText, L"Rest Time");
+    }
+    else if (CurrentMatchState == Match::MATCH_OVER) {
+        wsprintf(roundText, L"Match Over");
+    }
+    else {
 
+    
+    wsprintf(roundText, L"Round %d/%d", currentRound, Round);
+    }
     // Measure the size of the round text
     SIZE roundSize;
     GetTextExtentPoint32(hdc, roundText, lstrlen(roundText), &roundSize);

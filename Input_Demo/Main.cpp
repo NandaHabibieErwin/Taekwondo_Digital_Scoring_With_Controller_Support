@@ -440,15 +440,14 @@ void SetMatchState(Match::MATCH_STATE NewState) {
         CurrentMatchState = NewState;
         if (CurrentMatchState == Match::MATCH_OVER) {
             match.CheckWinner();  // Check winner when match is over           
-            PlaySound(TEXT("sound/matchover.wav"), NULL, SND_FILENAME | SND_ASYNC);
-            SetWindowText(hStartTimer, L"Match Over");
+            PlaySound(TEXT("sound/matchover.wav"), NULL, SND_FILENAME | SND_ASYNC);            
             UpdateDisplay(GetActiveWindow());
         }
         UpdateUI();
     }
 }
 
-enum Match::MATCH_STATE GetMatchState() {
+extern enum Match::MATCH_STATE GetMatchState() {
     return CurrentMatchState;
 }
 
@@ -586,14 +585,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 MessageBox(hWnd, L"Timer not set yet! Set the timer in the menu first", L"Timer not set", MB_OK | MB_ICONEXCLAMATION);
             }
             else if (!timerRunning) {
+                if (CurrentMatchState == Match::MATCH_REST) {                    
+                    SetMatchState(Match::MATCH_REST);                    
+                }
+                else {
+                    SetWindowText(hStartTimer, L"Pause");
+                    SetMatchState(Match::MATCH_PLAYING);
+                }
                 AWinner = false;
                 BWinner = false;
                 Tie = false;
                 timerRunning = true;
 
-                SetWindowText(hStartTimer, CurrentMatchState == Match::MATCH_REST ? L"Resting" : L"Pause");
                 SetTimer(hWnd, TIMER_ID, 1000, NULL);  // Start the timer
-                    CurrentMatchState = Match::MATCH_PLAYING;
                 UpdateDisplay(hWnd);
             }
             else {               
@@ -623,6 +627,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             countdown = 0;
             CurrentRound = 1;
             SetMatchState(Match::MATCH_IDLE);
+            SetWindowText(hStartTimer, L"Start");
             UpdateDisplay(hWnd);
 
         }
@@ -646,11 +651,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             break;
         case FINISH:
-            timerRunning = false;
-            KillTimer(hWnd, TIMER_ID);
             // scoreA = 0;
             // scoreB = 0;
-            countdown = 0;
+            countdown = 1;
             SetWindowText(hStartTimer, L"Start");
             UpdateDisplay(hWnd);
             break;
@@ -669,7 +672,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         int buttonSpacing = 10; // Space between buttons
 
 
-        int totalButtonWidth = (buttonWidth * 4) + (buttonSpacing * 2);
+        int totalButtonWidth = (buttonWidth * 3) + (buttonSpacing * 2);
 
 
         int buttonStartX = (width - totalButtonWidth) / 2;
@@ -678,7 +681,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         SetWindowPos(hStartTimer, NULL, buttonStartX, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
         SetWindowPos(hReset, NULL, buttonStartX + buttonWidth + buttonSpacing, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
         SetWindowPos(hFinish, NULL, buttonStartX + (buttonWidth + buttonSpacing) * 2, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
-        SetWindowPos(hNextRound, NULL, buttonStartX + (buttonWidth + buttonSpacing) * 3, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
+    //    SetWindowPos(hNextRound, NULL, buttonStartX + (buttonWidth + buttonSpacing) * 3, height - 100, buttonWidth, buttonHeight, SWP_NOZORDER);
 
         InvalidateRect(hWnd, NULL, TRUE);
         UpdateWindow(hWnd);
@@ -797,8 +800,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     else {
                         // Start rest time if more rounds are left
                         countdown = RestTimer;
-                        SetMatchState(Match::MATCH_REST);
-                        SetWindowText(hStartTimer, L"Resting");
+                        SetMatchState(Match::MATCH_REST);                        
                         SetTimer(hWnd, TIMER_ID, 1000, NULL);  // Start rest timer
                         UpdateDisplay(hWnd);
                     }
@@ -809,8 +811,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     if (CurrentRound > Round) {
                         // All rounds completed, end the match
                         SetMatchState(Match::MATCH_OVER);
-                        PlaySound(TEXT("sound/matchover.wav"), NULL, SND_FILENAME | SND_ASYNC);
-                        SetWindowText(hStartTimer, L"Match Over");
+                        PlaySound(TEXT("sound/matchover.wav"), NULL, SND_FILENAME | SND_ASYNC);                        
                         UpdateDisplay(hWnd);
                     }
                     else {

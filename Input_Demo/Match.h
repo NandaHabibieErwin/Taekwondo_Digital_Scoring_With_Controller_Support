@@ -12,7 +12,6 @@ void DisplayRound(HDC hdc, int windowWidth, int roundYOffset, int fontSize, int 
 void DisplayTotalScore(HDC hdc, int totalScoreA, int totalScoreB, int halfWidth, int windowHeight);
 
 
-
 // Global variables
 
 extern int currentJury;
